@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "features": [
+    {
+      "id": "H001",
+      "priority": 0,
+      "area": "harness",
+      "title": "Repeatable starter and agent handoff",
+      "user_visible_behavior": "A fresh session can find the scope, run the starter, verify it, and identify the next feature without chat history.",
+      "status": "passing",
+      "verification": [
+        "Run ./init.sh successfully with the pinned pnpm version.",
+        "Run pnpm build and request the served starter page.",
+        "Check that .env and generated assets are ignored, while .env.example and pnpm-lock.yaml remain trackable.",
+        "Read the linked docs and confirm planned product features are not described as implemented."
+      ],
+      "evidence": [
+        "2026-09-14: ./init.sh passed frozen install, harness checks, zero-warning ESLint, and TypeScript.",
+        "2026-09-14: pnpm build passed; production browser theme toggle/reload and development HTTP check passed.",
+        "2026-09-14: Git ignore and four negative harness checks passed. See docs/evidence/2026-09-14-initialization.md."
+      ],
+      "notes": "Setup and documentation only; no database or model integration."
+    },
+    {
+      "id": "F001",
+      "priority": 1,
+      "area": "studio",
+      "title": "Persist an episode in the local studio",
+      "user_visible_behavior": "The creator can create, edit, and reopen an episode idea with a target duration in a branded HeroUI workspace.",
+      "status": "passing",
+      "verification": [
+        "Apply Drizzle migrations to a new local PostgreSQL database with pgvector.",
+        "Create and edit an episode through the UI; reload and restart to verify persistence.",
+        "Verify invalid duration and unavailable-database states are clear and do not lose input."
+      ],
+      "evidence": [
+        "2026-09-14: Fresh PostgreSQL/pgvector migration and repeat migration passed; disposable database tests covered persistence, constraints, and concurrent revisions.",
+        "2026-09-14: Browser create/edit/reload and app/database restart persistence passed; failed saves retained input and recovered after database restart.",
+        "2026-09-14: Invalid-duration 422, stale-revision 409, and foreign-origin 403 checks passed; mobile layouts, provider presence, and search reviewed.",
+        "2026-09-14: pnpm check (9 unit tests) and pnpm build passed. See docs/evidence/2026-09-14-episode-studio.md."
+      ],
+      "notes": "Episode CRUD and configuration only. Provider policy is tested in isolation; no source, AI, audio, or render integrations are claimed."
+    },
+    {
+      "id": "F002",
+      "priority": 2,
+      "area": "sources",
+      "title": "Import and inspect a Qur'an translation",
+      "user_visible_behavior": "The creator can inspect canonical English verses, their translator, references, and surrounding context.",
+      "status": "passing",
+      "verification": [
+        "Import a selected edition through Quran Foundation with matching environment credentials.",
+        "Compare representative imported text and metadata with its canonical source.",
+        "Repeat an import without duplicates; surface incomplete imports and authentication failures.",
+        "Record edition attribution and reuse status."
+      ],
+      "evidence": [
+        "2026-09-14: Authenticated Quran Foundation pre-live catalog/edition inspection and import of all 293 available verses; explicit 2/114 chapter coverage and not-cleared publication status.",
+        "2026-09-14: Full live refresh reused the same source version without duplicate passages; five representative verse/Arabic/payload comparisons matched fresh authenticated source responses.",
+        "2026-09-14: pnpm check (13 unit tests), pnpm test:db (2 suites), and pnpm build passed; fixture tests cover chapter recovery, lock exclusion, deduplication and immutable prior versions.",
+        "2026-09-14: Production browser search, chapter pagination, context, Arabic/provenance, missing/invalid references, keyboard, mobile, empty and offline states passed. See docs/evidence/2026-09-14-source-inspection.md."
+      ],
+      "notes": "Authenticated pre-live import: Abdel Haleem resource 85, chapters 1\u20132 only (293 verses). Available catalog complete; full Qur\u2019an production coverage and publication reuse remain unverified/not cleared. See docs/sources.md."
+    },
+    {
+      "id": "F003",
+      "priority": 3,
+      "area": "writing",
+      "title": "Draft from retrieved canonical sources",
+      "user_visible_behavior": "An idea produces an editable draft with inspectable source context and exact citations.",
+      "status": "passing",
+      "verification": [
+        "Evaluate keyword/vector retrieval on a small labeled set including a no-support query.",
+        "Generate a structured draft through OpenRouter and resolve quotation text from stored IDs.",
+        "Reject fabricated IDs, altered quote text, and incompatible embedding configurations.",
+        "Persist a script revision and its source-review state."
+      ],
+      "evidence": [
+        "2026-09-15: Authenticated OpenRouter indexed 293 passages with openai/text-embedding-3-small (1536 dimensions); four labeled retrieval cases and one unsupported query passed.",
+        "2026-09-15: Luna generated a persisted structured draft; canonical quotation 2:153 was resolved from the source ID. Browser edit/save/reload retained quotation and context while creating an unreviewed revision.",
+        "2026-09-15: pnpm check (15 tests), pnpm test:db (3 suites), and production build passed. Fabricated IDs, altered quotations, configuration drift, stale edits, and review invalidation are covered. See docs/evidence/2026-09-15-writing.md."
+      ],
+      "notes": "Live OpenRouter index/evaluation/draft cost: $0.00214733. Source coverage remains pre-live chapters 1\u20132; quotation reuse not cleared. Latest pilot script awaits creator review."
+    },
+    {
+      "id": "F004",
+      "priority": 4,
+      "area": "audio",
+      "title": "Generate narration and editable caption timing",
+      "user_visible_behavior": "The creator can audition a voice, generate narration, and review synchronized captions against the approved script.",
+      "status": "blocked",
+      "verification": [
+        "Audition direct Cartesia/ElevenLabs/Deepgram speech using confirmed credit eligibility; use native timing or Deepgram transcription.",
+        "Listen for pronunciation and compare timing/text to the approved script, including quotations.",
+        "Flag missing timestamps and mismatches; verify manual timing adjustment.",
+        "Exercise worker restart, bounded retry, and cached output reuse without duplicate local artifacts.",
+        "Verify unknown/exhausted credit or rights blocks dispatch, no OpenRouter/paid fallback occurs without opt-in, and concurrent jobs reserve usage."
+      ],
+      "evidence": [
+        "2026-09-15: 16 unit tests and three DB suites pass, including native alignment rejection, timing revisions, stale compositions and pre-dispatch credit/rights/reservation guards. Production desktop/mobile voice discovery confirms 10,000 unused ElevenLabs characters; no real speech dispatched. See docs/evidence/2026-09-15-media-foundation.md.",
+        "2026-09-15: Real narration, exact native alignment/caption text and \u22123 dB peak verified. Reporting-lag and stale-reset credit guards added. See docs/evidence/2026-09-15-private-pilot.md."
+      ],
+      "notes": "Real ElevenLabs Brian take generated after explicit creator authorization: 95.1 seconds, 51 aligned caption phrases, 1,501 included characters. Exact script/alignment/text and peak-level checks pass; creator pronunciation/listening acceptance remains pending. No automatic provider or paid fallback. Paused for creator listening feedback while requested F005 controls are implemented; resume after feedback."
+    },
+    {
+      "id": "F005",
+      "priority": 5,
+      "area": "video",
+      "title": "Preview and render two centered-caption formats",
+      "user_visible_behavior": "One composition produces readable landscape and vertical videos with configurable background and audio.",
+      "status": "in_progress",
+      "verification": [
+        "Render a short fixture at 1920x1080 and 1080x1920 from the same composition revision.",
+        "Inspect text wrapping, source references, safe margins, and deterministic frame output.",
+        "Probe dimensions/duration and listen for caption sync, audio balance, fades, and clipping.",
+        "Verify narration edits make existing caption timing and renders stale.",
+        "Upload a still image/GIF and an audio track; preserve source notes and verify deterministic GIF playback.",
+        "Create text-only reading cards without a voice take, save/reload settings, revise a preview, and export both formats with music or silence."
+      ],
+      "evidence": [
+        "2026-09-15: Shared Remotion fixture renders and queued worker workflow pass at 1920x1080 and 1080x1920 with H.264/AAC, measured duration and a byte-identical repeated frame. Browser Player, timing invalidation, downloads and HTTP 206 checked on a disposable fixture. Actual narration and full pilot acceptance remain pending.",
+        "2026-09-15: Real 95.765-second landscape and vertical H.264/AAC pilot exports fully decode; actual frames, Player playback and byte-identical downloads verified. Ambience and complete listening acceptance remain pending.",
+        "2026-09-16: Creator upload/configuration workflow verified with 20 unit tests, 3 database suites, build, deterministic GIF frames, all audio-mode worker exports and browser upload/save/reload. See docs/evidence/2026-09-16-configurable-studio.md.",
+        "2026-09-16: Full 148.16-second text-only image/music example exported in both formats. Actual frames, full decoding, music loop/fade/peak analysis and downloaded checksum passed; no speech dispatch."
+      ],
+      "notes": "Creator-requested upload/configuration workflow implemented, including still images/GIFs, music looping/fades, optional narration, reading speed and immutable preview revisions. Video backgrounds deferred. Technical acceptance recorded in 2026-09-16 evidence; creator music/listening feedback remains pending."
+    },
+    {
+      "id": "F006",
+      "priority": 6,
+      "area": "pilot",
+      "title": "Complete a reviewed 90\u2013120 second pilot",
+      "user_visible_behavior": "The creator completes one original episode and downloads both videos, captions, and a source-referenced description.",
+      "status": "not_started",
+      "verification": [
+        "Run the complete idea-to-export workflow with at least one verified Qur'an quotation.",
+        "Exercise stage review and consolidated review; confirm approval belongs to the exact export revision.",
+        "Watch and listen to both full outputs and verify downloadable files and reference text.",
+        "Record actual elapsed time, model usage/cost, and creator feedback."
+      ],
+      "evidence": [
+        "2026-09-15: First actual 95-second private pilot generated with verified Qur\u2019an quotation, ElevenLabs narration, captions, both MP4s and source description. User-requested generation goal achieved; creator approval and full feature acceptance are not claimed."
+      ],
+      "notes": "Real private review copies are available. Remaining: full creator watching/listening and feedback, exact-revision consolidated review controls, and publication rights. Manual publishing remains outside the app."
+    },
+    {
+      "id": "F007",
+      "priority": 7,
+      "area": "sources",
+      "title": "Support a verified hadith corpus",
+      "user_visible_behavior": "The creator can retrieve and cite curated hadith with complete report context and traceable collection references.",
+      "status": "not_started",
+      "verification": [
+        "Import available Sunnah.com records or reviewed manual records with explicit provenance.",
+        "Preserve numbering schemes, full context, and any supplied grading authority.",
+        "Show corpus coverage and unknown grades accurately; repeat import without duplicates.",
+        "Use a verified hadith in a reviewed script and its exported description."
+      ],
+      "evidence": [],
+      "notes": "Required channel capability after the initial Qur'an-based pilot; complete Bukhari API coverage is not assumed."
+    }
+  ]
+}
