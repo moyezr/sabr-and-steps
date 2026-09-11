@@ -1,0 +1,19 @@
+name: sabr-and-steps
+services:
+  db:
+    image: pgvector/pgvector:0.8.2-pg17
+    environment:
+      POSTGRES_DB: sabr_and_steps
+      POSTGRES_USER: sabr
+      POSTGRES_PASSWORD: ${SABR_DB_PASSWORD:?Run pnpm db:configure first}
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sabr -d sabr_and_steps"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+volumes:
+  postgres_data:

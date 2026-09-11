@@ -1,0 +1,1 @@
+ALTER TABLE "compositions" DROP CONSTRAINT "compositions_checksum_unique";

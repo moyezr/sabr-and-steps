@@ -1,0 +1,436 @@
+{
+  "id": "60dbd6bb-3254-490f-88ca-88f6fca2eff3",
+  "prevId": "09c361d3-40a0-493a-b647-4e95161babe7",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.episodes": {
+      "name": "episodes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "brief": {
+          "name": "brief",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "theme": {
+          "name": "theme",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_seconds": {
+          "name": "target_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "llm_model": {
+          "name": "llm_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "narration_provider": {
+          "name": "narration_provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "format": {
+          "name": "format",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "episodes_updated_at_idx": {
+          "name": "episodes_updated_at_idx",
+          "columns": [
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "episode_title_length": {
+          "name": "episode_title_length",
+          "value": "char_length(trim(\"episodes\".\"title\")) BETWEEN 1 AND 140"
+        },
+        "episode_brief_length": {
+          "name": "episode_brief_length",
+          "value": "char_length(\"episodes\".\"brief\") <= 5000"
+        },
+        "episode_duration": {
+          "name": "episode_duration",
+          "value": "\"episodes\".\"target_seconds\" BETWEEN 60 AND 300"
+        },
+        "episode_model": {
+          "name": "episode_model",
+          "value": "\"episodes\".\"llm_model\" IN ('openai/gpt-5.6-luna', 'google/gemini-3.8-flash')"
+        },
+        "episode_theme": {
+          "name": "episode_theme",
+          "value": "\"episodes\".\"theme\" IN ('hope', 'patience', 'gratitude', 'forgiveness', 'trust')"
+        },
+        "episode_narration": {
+          "name": "episode_narration",
+          "value": "\"episodes\".\"narration_provider\" IN ('auto', 'cartesia', 'elevenlabs', 'deepgram')"
+        },
+        "episode_format": {
+          "name": "episode_format",
+          "value": "\"episodes\".\"format\" IN ('both', 'landscape', 'vertical')"
+        },
+        "episode_purpose": {
+          "name": "episode_purpose",
+          "value": "\"episodes\".\"purpose\" IN ('audition', 'publish')"
+        },
+        "episode_revision": {
+          "name": "episode_revision",
+          "value": "\"episodes\".\"revision\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.source_imports": {
+      "name": "source_imports",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "environment": {
+          "name": "environment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resource_id": {
+          "name": "resource_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "author": {
+          "name": "author",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'running'"
+        },
+        "expected_chapters": {
+          "name": "expected_chapters",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expected_verses": {
+          "name": "expected_verses",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completed_chapters": {
+          "name": "completed_chapters",
+          "type": "integer[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::integer[]"
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rights_status": {
+          "name": "rights_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'not_cleared'"
+        },
+        "rights_notes": {
+          "name": "rights_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checksum": {
+          "name": "checksum",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "source_environment": {
+          "name": "source_environment",
+          "value": "\"source_imports\".\"environment\" IN ('prelive','production')"
+        },
+        "source_status": {
+          "name": "source_status",
+          "value": "\"source_imports\".\"status\" IN ('running','failed','completed')"
+        },
+        "source_rights": {
+          "name": "source_rights",
+          "value": "\"source_imports\".\"rights_status\" IN ('not_cleared','cleared')"
+        },
+        "source_counts": {
+          "name": "source_counts",
+          "value": "\"source_imports\".\"expected_chapters\" BETWEEN 1 AND 114 AND \"source_imports\".\"expected_verses\" BETWEEN 1 AND 6236"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.source_passages": {
+      "name": "source_passages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "import_id": {
+          "name": "import_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chapter": {
+          "name": "chapter",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "verse": {
+          "name": "verse",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chapter_name": {
+          "name": "chapter_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "arabic": {
+          "name": "arabic",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "raw": {
+          "name": "raw",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checksum": {
+          "name": "checksum",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "passage_import_reference": {
+          "name": "passage_import_reference",
+          "columns": [
+            {
+              "expression": "import_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "reference",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "passage_chapter": {
+          "name": "passage_chapter",
+          "columns": [
+            {
+              "expression": "import_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "chapter",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "verse",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "source_passages_import_id_source_imports_id_fk": {
+          "name": "source_passages_import_id_source_imports_id_fk",
+          "tableFrom": "source_passages",
+          "tableTo": "source_imports",
+          "columnsFrom": [
+            "import_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "passage_reference": {
+          "name": "passage_reference",
+          "value": "\"source_passages\".\"chapter\" BETWEEN 1 AND 114 AND \"source_passages\".\"verse\" BETWEEN 1 AND 286 AND \"source_passages\".\"reference\" = \"source_passages\".\"chapter\"::text || ':' || \"source_passages\".\"verse\"::text"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

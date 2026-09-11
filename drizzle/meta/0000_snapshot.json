@@ -1,0 +1,162 @@
+{
+  "id": "09c361d3-40a0-493a-b647-4e95161babe7",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.episodes": {
+      "name": "episodes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "brief": {
+          "name": "brief",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "theme": {
+          "name": "theme",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_seconds": {
+          "name": "target_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "llm_model": {
+          "name": "llm_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "narration_provider": {
+          "name": "narration_provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "format": {
+          "name": "format",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "episodes_updated_at_idx": {
+          "name": "episodes_updated_at_idx",
+          "columns": [
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "episode_title_length": {
+          "name": "episode_title_length",
+          "value": "char_length(trim(\"episodes\".\"title\")) BETWEEN 1 AND 140"
+        },
+        "episode_brief_length": {
+          "name": "episode_brief_length",
+          "value": "char_length(\"episodes\".\"brief\") <= 5000"
+        },
+        "episode_duration": {
+          "name": "episode_duration",
+          "value": "\"episodes\".\"target_seconds\" BETWEEN 60 AND 300"
+        },
+        "episode_model": {
+          "name": "episode_model",
+          "value": "\"episodes\".\"llm_model\" IN ('openai/gpt-5.6-luna', 'google/gemini-3.8-flash')"
+        },
+        "episode_theme": {
+          "name": "episode_theme",
+          "value": "\"episodes\".\"theme\" IN ('hope', 'patience', 'gratitude', 'forgiveness', 'trust')"
+        },
+        "episode_narration": {
+          "name": "episode_narration",
+          "value": "\"episodes\".\"narration_provider\" IN ('auto', 'cartesia', 'elevenlabs', 'deepgram')"
+        },
+        "episode_format": {
+          "name": "episode_format",
+          "value": "\"episodes\".\"format\" IN ('both', 'landscape', 'vertical')"
+        },
+        "episode_purpose": {
+          "name": "episode_purpose",
+          "value": "\"episodes\".\"purpose\" IN ('audition', 'publish')"
+        },
+        "episode_revision": {
+          "name": "episode_revision",
+          "value": "\"episodes\".\"revision\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
