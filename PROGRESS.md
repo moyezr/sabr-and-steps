@@ -17,7 +17,8 @@ Last updated: 2026-09-16.
 - Maintenance requested by the creator: configure `origin` as `https://github.com/moyezr/sabr-and-steps.git`, use the authenticated `moyezr` account, and push a week-spanning commit history. The destination was empty and public when inspected.
 - No previous development commits existed. The initial import is organized into seven logical groups with arranged author dates September 10–16 and actual committer timestamps. Every import commit identifies the reconstruction; these are not recovered daily snapshots. See D017 in `DECISIONS.md`.
 - Fresh verification: `pnpm check` passed (harness, lint, TypeScript, 20 unit tests); `pnpm test:db` passed all three disposable database suites; `pnpm build` passed. Credential-pattern and local-secret matching scans of the 146 initial candidate files found no matches. `.env`, `.data`, dependencies, and build output remain ignored.
-- No application behavior or feature status changed; F005 remains the single active feature. Remote publication is authorized for this import; verify local `main` matches remote `main` after pushing. Future verified work should be committed in focused changes with actual timestamps.
+- Published all seven import commits (`09a0944` through `9a7bd3d`) to `origin/main` using `moyezr`. Remote `main` matched local `main` at `9a7bd3db7922cdafb1757b6867c47a03aef77e06`, and the working tree was clean. This publication record follows in a documentation-only commit with actual timestamps.
+- No application behavior or feature status changed; F005 remains the single active feature. Future verified work should be committed in focused changes with actual timestamps.
 - Next product action remains creator feedback on reading pace and mix, followed by exact-revision editorial review controls.
 
 ## Prior session — 2026-09-16: bring-your-own studio media
