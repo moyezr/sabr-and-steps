@@ -1,0 +1,443 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import test from "node:test";
+import nextEnv from "@next/env";
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
+nextEnv.loadEnvConfig(process.cwd());
+test("durable jobs claim once, recover safely, and script edits preserve canonical text and invalidate review", async () => {
+  assert(process.env.DATABASE_URL);
+  const admin = new Pool({ connectionString: process.env.DATABASE_URL });
+  const name = `sabr_writing_${randomUUID().replaceAll("-", "")}`;
+  let pool: Pool | undefined;
+  try {
+    await admin.query(`CREATE DATABASE "${name}"`);
+    const url = new URL(process.env.DATABASE_URL);
+    url.pathname = `/${name}`;
+    process.env.DATABASE_URL = url.toString();
+    const { getPool, getDb } = await import("../../lib/server/db/client");
+    pool = getPool();
+    await migrate(drizzle(pool), { migrationsFolder: "drizzle" });
+    await migrate(drizzle(pool), { migrationsFolder: "drizzle" });
+    const { enqueueJob, claimJob, findJob } = await import(
+      "../../lib/server/jobs/store"
+    );
+    const job = await enqueueJob("fixture", { test: 1 });
+    assert.equal((await enqueueJob("fixture", { test: 1 })).id, job.id);
+    const claims = await Promise.all([claimJob(job.id), claimJob(job.id)]);
+    assert.equal(claims.filter(Boolean).length, 1);
+    await pool.query(
+      "UPDATE jobs SET lease_until=now()-interval '1 minute' WHERE id=$1",
+      [job.id],
+    );
+    assert(await claimJob(job.id));
+    await pool.query(
+      "UPDATE jobs SET lease_until=now()-interval '1 minute',dispatched_at=now() WHERE id=$1",
+      [job.id],
+    );
+    assert.equal(await claimJob(job.id), null);
+    assert.equal((await findJob(job.id))?.status, "needs_attention");
+    const { createEpisode } = await import("../../lib/server/db/episodes");
+    const { EMPTY_EPISODE } = await import("../../lib/domain/episode");
+    const episode = await createEpisode({
+      ...EMPTY_EPISODE,
+      title: "Writing fixture",
+    });
+    const { sourceImports, sourcePassages, embeddingIndexes, scriptRevisions } =
+      await import("../../lib/server/db/schema");
+    const db = getDb();
+    const edition = (
+      await db
+        .insert(sourceImports)
+        .values({
+          environment: "prelive",
+          resourceId: 85,
+          name: "Fixture",
+          author: "Fixture",
+          status: "completed",
+          expectedChapters: 1,
+          expectedVerses: 1,
+          completedChapters: [1],
+          metadata: {},
+          rightsNotes: "Synthetic fixture",
+        })
+        .returning()
+    )[0];
+    const source = (
+      await db
+        .insert(sourcePassages)
+        .values({
+          importId: edition.id,
+          chapter: 1,
+          verse: 1,
+          reference: "1:1",
+          chapterName: "Fixture",
+          text: "Synthetic canonical fixture.",
+          arabic: "اختبار",
+          raw: {},
+          checksum: "fixture",
+        })
+        .returning()
+    )[0];
+    const { EMBEDDING_CONFIG } = await import("../../lib/domain/script");
+    const index = (
+      await db
+        .insert(embeddingIndexes)
+        .values({
+          importId: edition.id,
+          configHash: "fixture",
+          ...EMBEDDING_CONFIG,
+          state: "ready",
+        })
+        .returning()
+    )[0];
+    const blocks = [
+      {
+        kind: "quote" as const,
+        text: source.text,
+        sourceId: source.id,
+        reference: "1:1",
+        edition: "Fixture",
+        importId: edition.id,
+      },
+      { kind: "reflection" as const, text: "Synthetic reflection." },
+    ];
+    const script = (
+      await db
+        .insert(scriptRevisions)
+        .values({
+          episodeId: episode.id,
+          episodeRevision: 1,
+          importId: edition.id,
+          indexId: index.id,
+          model: episode.llmModel,
+          title: "Fixture",
+          blocks,
+          retrieval: { sources: [] },
+          checksum: "a".repeat(64),
+        })
+        .returning()
+    )[0];
+    const { reviewDraft, saveDraft, listDrafts } = await import(
+      "../../lib/server/writing/drafts"
+    );
+    await reviewDraft(episode.id, script.id, script.checksum, "Fixture review");
+    await assert.rejects(
+      saveDraft(episode.id, {
+        parentId: script.id,
+        title: "Fixture",
+        blocks: [{ ...blocks[0], text: "Altered canonical text" }, blocks[1]],
+      }),
+      /CANONICAL_QUOTATION_CHANGED/,
+    );
+    const saved = await saveDraft(episode.id, {
+      parentId: script.id,
+      title: "Edited fixture",
+      blocks: [blocks[0], { kind: "reflection", text: "Edited reflection." }],
+    });
+    assert.equal(saved.reviewState, "unreviewed");
+    assert.equal((await listDrafts(episode.id))[1].reviewState, "reviewed");
+    await assert.rejects(
+      saveDraft(episode.id, { parentId: script.id, title: "Stale", blocks }),
+      /SCRIPT_REVISION_CONFLICT/,
+    );
+    const { voiceTakes, captionTracks } = await import(
+      "../../lib/server/db/schema"
+    );
+    const {
+      saveComposition: saveTextComposition,
+      validateCurrentComposition: validateTextComposition,
+    } = await import("../../lib/server/media/composition");
+    const { compositionSchema } = await import("../../lib/domain/media");
+    const silent = await saveTextComposition(episode.id, {
+      scriptId: saved.id,
+      mode: "text",
+      background: "sand",
+      narrationVolume: 0,
+      readingWpm: 100,
+    });
+    assert.equal(silent.voiceTakeId, null);
+    assert.equal(silent.captionTrackId, null);
+    const silentData = compositionSchema.parse(silent.data);
+    assert.equal(silentData.audioUrl, "");
+    assert.equal(
+      silentData.cues.map((c) => c.text).join(" "),
+      "Synthetic canonical fixture. Edited reflection.",
+    );
+    await validateTextComposition(silent.id);
+    const slower = await saveTextComposition(episode.id, {
+      scriptId: saved.id,
+      mode: "text",
+      background: "sand",
+      narrationVolume: 0,
+      readingWpm: 70,
+    });
+    assert.notEqual(slower.id, silent.id);
+    assert.notEqual(slower.checksum, silent.checksum);
+    const { importAsset, checkedAsset } = await import(
+      "../../lib/server/media/assets"
+    );
+    await assert.rejects(
+      importAsset(new Uint8Array(Buffer.from("<svg>not an image</svg>")), {
+        kind: "image",
+        name: "Bad image",
+        provenance: "Fixture",
+      }),
+    );
+    const wav = Buffer.alloc(48044);
+    wav.write("RIFF");
+    wav.writeUInt32LE(wav.length - 8, 4);
+    wav.write("WAVEfmt ", 8);
+    wav.writeUInt32LE(16, 16);
+    wav.writeUInt16LE(1, 20);
+    wav.writeUInt16LE(1, 22);
+    wav.writeUInt32LE(24000, 24);
+    wav.writeUInt32LE(48000, 28);
+    wav.writeUInt16LE(2, 32);
+    wav.writeUInt16LE(16, 34);
+    wav.write("data", 36);
+    wav.writeUInt32LE(48000, 40);
+    const asset = await importAsset(new Uint8Array(wav), {
+      kind: "audio",
+      name: "Synthetic silence",
+      provenance: "Test fixture only",
+    });
+    await assert.rejects(
+      checkedAsset(asset.id, "image"),
+      /ASSET_KIND_MISMATCH/,
+    );
+    const withMusic = await saveTextComposition(episode.id, {
+      scriptId: saved.id,
+      mode: "text",
+      background: "dusk",
+      narrationVolume: 0,
+      musicId: asset.id,
+      musicVolume: 0.4,
+      musicLoop: false,
+      musicFade: 1,
+    });
+    assert.equal(
+      compositionSchema.parse(withMusic.data).music?.name,
+      "Synthetic silence",
+    );
+    await validateTextComposition(withMusic.id);
+    // Text-only compositions remain valid when narration is later generated.
+    const narrationJob = await enqueueJob(
+      "fixture-audio",
+      { scriptId: saved.id },
+      episode.id,
+    );
+    const take = (
+      await db
+        .insert(voiceTakes)
+        .values({
+          scriptId: saved.id,
+          jobId: narrationJob.id,
+          provider: "fixture",
+          model: "synthetic",
+          voiceId: "fixture",
+          voiceName: "Fixture",
+          settings: {},
+          purpose: "audition",
+          transcript: "Edited reflection.",
+          audioPath: "fixture-not-a-real-file",
+          duration: 5,
+          checksum: "fixture-audio",
+          rights: {},
+          alignment: {},
+        })
+        .returning()
+    )[0];
+    const track = (
+      await db
+        .insert(captionTracks)
+        .values({
+          voiceTakeId: take.id,
+          cues: [
+            {
+              start: 0,
+              end: 2,
+              text: "Edited reflection.",
+              kind: "reflection",
+            },
+          ],
+          checksum: "fixture-caption",
+        })
+        .returning()
+    )[0];
+    const { saveCaptionTiming } = await import(
+      "../../lib/server/media/narration"
+    );
+    const { saveComposition, validateCurrentComposition } = await import(
+      "../../lib/server/media/composition"
+    );
+    const composition = await saveComposition(episode.id, {
+      scriptId: saved.id,
+      voiceTakeId: take.id,
+      captionTrackId: track.id,
+      background: "forest",
+      narrationVolume: 1,
+    });
+    await validateCurrentComposition(composition.id);
+    await assert.rejects(
+      saveCaptionTiming(take.id, track.id, [{ start: 3, end: 8 }]),
+      /CAPTION_TIMING_INVALID/,
+    );
+    const revised = await saveCaptionTiming(take.id, track.id, [
+      { start: 0.1, end: 2.1 },
+    ]);
+    assert.equal(
+      (revised.cues as { text: string }[])[0].text,
+      "Edited reflection.",
+    );
+    await assert.rejects(
+      validateCurrentComposition(composition.id),
+      /COMPOSITION_STALE/,
+    );
+    await assert.rejects(
+      saveCaptionTiming(take.id, track.id, [{ start: 0, end: 2 }]),
+      /CAPTION_REVISION_CONFLICT/,
+    );
+    let fresh = await saveComposition(episode.id, {
+      scriptId: saved.id,
+      voiceTakeId: take.id,
+      captionTrackId: revised.id,
+      background: "dusk",
+      narrationVolume: 0.9,
+    });
+    const newerJob = await enqueueJob(
+      "fixture-new-take",
+      { scriptId: saved.id },
+      episode.id,
+    );
+    const newerTake = (
+      await db
+        .insert(voiceTakes)
+        .values({
+          ...take,
+          id: randomUUID(),
+          jobId: newerJob.id,
+          checksum: "new-audio",
+          createdAt: new Date(Date.now() + 1),
+        })
+        .returning()
+    )[0];
+    const newerTrack = (
+      await db
+        .insert(captionTracks)
+        .values({
+          voiceTakeId: newerTake.id,
+          cues: revised.cues,
+          checksum: "new-caption",
+        })
+        .returning()
+    )[0];
+    await assert.rejects(
+      validateCurrentComposition(fresh.id),
+      /COMPOSITION_STALE/,
+    );
+    await assert.rejects(
+      saveComposition(episode.id, {
+        scriptId: saved.id,
+        voiceTakeId: take.id,
+        captionTrackId: revised.id,
+        background: "forest",
+        narrationVolume: 1,
+      }),
+      /VOICE_REVISION_CHANGED/,
+    );
+    fresh = await saveComposition(episode.id, {
+      scriptId: saved.id,
+      voiceTakeId: newerTake.id,
+      captionTrackId: newerTrack.id,
+      background: "forest",
+      narrationVolume: 1,
+    });
+    await validateTextComposition(silent.id);
+    await saveDraft(episode.id, {
+      parentId: saved.id,
+      title: "Edited again",
+      blocks,
+    });
+    await assert.rejects(
+      validateCurrentComposition(fresh.id),
+      /COMPOSITION_STALE/,
+    );
+    await assert.rejects(
+      validateTextComposition(silent.id),
+      /COMPOSITION_STALE/,
+    );
+    // Provider fixtures are deterministic; no network or live-provider evidence.
+    const { elevenSpeech } = await import(
+      "../../lib/server/providers/elevenlabs"
+    );
+    const realFetch = globalThis.fetch,
+      realKey = process.env.ELEVEN_LABS_API_KEY;
+    let speechCalls = 0;
+    let remaining = 0;
+    process.env.ELEVEN_LABS_API_KEY = "synthetic-fixture-key";
+    globalThis.fetch = async (input) => {
+      const url = String(input);
+      if (url.endsWith("/v1/voices"))
+        return Response.json({
+          voices: [
+            { voice_id: "fixture", name: "Fixture", category: "premade" },
+          ],
+        });
+      if (url.endsWith("/v1/user/subscription"))
+        return Response.json({
+          tier: "free",
+          status: "free",
+          character_count: 0,
+          character_limit: remaining,
+          can_extend_character_limit: false,
+        });
+      speechCalls++;
+      throw new Error("Unexpected dispatch");
+    };
+    try {
+      const candidate = await enqueueJob(
+        "fixture-guard",
+        { fixture: true },
+        episode.id,
+      );
+      const claimed = await claimJob(candidate.id);
+      assert(claimed);
+      const settings = { speed: 1, stability: 0.65, similarity_boost: 0.75 };
+      await assert.rejects(
+        elevenSpeech(claimed, "Test text", "fixture", settings, "audition"),
+        /CREDITS_INSUFFICIENT/,
+      );
+      remaining = 1000;
+      await assert.rejects(
+        elevenSpeech(claimed, "Test text", "fixture", settings, "publish"),
+        /RIGHTS_NOT_CLEARED/,
+      );
+      const { providerUsage } = await import("../../lib/server/db/schema");
+      await db.insert(providerUsage).values({
+        jobId: narrationJob.id,
+        operation: "other-reservation",
+        provider: "elevenlabs",
+        model: "fixture",
+        unit: "characters",
+        estimated: 950,
+        state: "reserved",
+        details: {},
+      });
+      await assert.rejects(
+        elevenSpeech(claimed, "Test text", "fixture", settings, "audition"),
+        /CREDITS_INSUFFICIENT/,
+      );
+      assert.equal(speechCalls, 0);
+    } finally {
+      globalThis.fetch = realFetch;
+      if (realKey === undefined) delete process.env.ELEVEN_LABS_API_KEY;
+      else process.env.ELEVEN_LABS_API_KEY = realKey;
+    }
+  } finally {
+    await pool?.end();
+    await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+    await admin.end();
+  }
+});
