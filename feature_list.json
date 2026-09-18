@@ -178,6 +178,24 @@
         "2026-09-18: Shared seven-section workspace, stage summary, existing-project routing, local draft protection, empty states, retained previews/exports, keyboard/mobile behavior, and malformed/missing routes passed automated and browser acceptance. pnpm check passed 27 unit tests plus lint/types/harness, all 3 pnpm test:db suites passed, and pnpm build passed. See docs/evidence/2026-09-18-connected-editor.md."
       ],
       "notes": "PLAN.md milestone 1 delivered without a schema migration or provider call. The mounted episode layout retains dirty edits across section switches and Back/Forward and warns before leaving or reloading. Drafts are not yet persisted across reload/restart. Explicit selected versions, autosave, undo/named history, targeted rewrites, scene timeline, richer media controls, and new format selection remain later milestones. Existing newest-artifact selection remains until milestone 2. F005 keeps its original criteria and evidence and remains blocked on creator feedback."
+    },
+    {
+      "id": "F009",
+      "priority": 9,
+      "area": "writing",
+      "title": "Persist script selection, working drafts, and history",
+      "user_visible_behavior": "The creator can keep editing across reloads, choose the script version used by the episode, save named versions, and restore an older version without a newly generated draft silently replacing current work.",
+      "status": "in_progress",
+      "verification": [
+        "Migrate existing episodes without deleting artifacts and backfill each selected script to the same latest revision used before the migration.",
+        "Autosave a changed title and reflection, reload the app, and recover the exact working draft; preserve local text and show recovery when concurrent saves conflict.",
+        "Save a named immutable version, select an older version, reload, and verify writing, narration readiness, composition staleness, and workspace status all follow the persisted selection.",
+        "Restore an older version as a new revision without mutating the source revision, and retain its parent, origin, label, model, and generation instructions in history.",
+        "Complete a deterministic generated alternative while another script and working draft are selected; verify the result appears in history without replacing either one.",
+        "Run pnpm check, pnpm test:db, pnpm build, and the documented desktop/mobile browser journey without model or speech calls."
+      ],
+      "evidence": [],
+      "notes": "Bounded PLAN.md milestone 2A. Script selection and working drafts come first because downstream media currently assumes scripts[0]. Explicit voice-take, caption-track, and composition selection; undo/redo; side-by-side comparison; and AI partial rewrites remain separate follow-on slices."
     }
   ]
 }

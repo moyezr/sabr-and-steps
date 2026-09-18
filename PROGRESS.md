@@ -5,7 +5,7 @@ Last updated: 2026-09-18.
 ## Current state
 
 - Repository: `/Users/moyezrabbani/Development/Projects/sabr-and-steps`.
-- H001 and F001–F003 and F008 are complete. A real narrated private pilot has been generated in both formats. F005 remains blocked on creator listening and aesthetic feedback; F004 is paused for listening feedback; F006 publication/review acceptance remains pending. `PLAN.md` milestone 2 is the next bounded editor increment.
+- H001 and F001–F003 and F008 are complete. A real narrated private pilot has been generated in both formats. F009 is active for the first milestone-2 slice: persisted script selection, working-draft autosave, and named script history. F005 remains blocked on creator listening and aesthetic feedback; F004 is paused for listening feedback; F006 publication/review acceptance remains pending.
 - Branded Next.js 16.2.6 / React 19.2.6 / HeroUI 3.2.5 studio: persisted episode ideas, responsive editor, Providers configuration, and Sources browser with search, references, context, Arabic, and provenance.
 - Drizzle 0.45.2, PostgreSQL 17, pgvector 0.8.2 are installed and migrated. The project uses its own Docker volume and loopback port 55432.
 - Script options are exactly `openai/gpt-5.6-luna` and `google/gemini-3.8-flash` through OpenRouter. Episode preferences, retrieval/draft generation, a usage ledger and ElevenLabs quota/rights guards are implemented. Live ElevenLabs narration and both private pilot exports are verified.
@@ -19,7 +19,7 @@ Last updated: 2026-09-18.
 - Episode-local buffers retain unsaved Idea, Script, source-edition, voice setup, upload, timing, and media settings while moving between sections or using Back/Forward. A custom leave dialog protects navigation outside the episode; `beforeunload` protects reload/close. These buffers are memory-backed, not milestone-2 autosave.
 - Verification passed: `pnpm check` with 27 unit tests, lint, types, and harness checks; all three `pnpm test:db` suites; `pnpm build`; and `git diff --check`. Browser acceptance covered the real pilot, disposable idea-only and script-only fixtures, save/reload, every section and direct route, keyboard activation, phone layout, vertical preview, local draft recovery, leave-dialog cancel/discard, 404 routes, and MP4/SRT/description retrieval. See [connected editor evidence](docs/evidence/2026-09-18-connected-editor.md).
 - No model or speech request was made. The disposable editor server/database were stopped after verification. The rebuilt production app remains available on `http://127.0.0.1:3107`.
-- Next action: begin milestone 2 with a bounded script-version slice: persisted selected script, revision-checked working draft autosave, and named immutable script history. Voice, caption, and composition selectors follow separately.
+- In progress: F009 adds a persisted selected script, revision-checked working-draft autosave, and named immutable script history. Selection must drive downstream narration/composition validity, and completed generation must not silently replace an existing selection. Voice, caption, and composition selectors follow separately.
 
 ## Prior session — 2026-09-16: establish Git history
 
