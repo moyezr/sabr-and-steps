@@ -1,33 +1,57 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BookOpen, Feather, RefreshCw } from "lucide-react";
+import { BookOpen, RefreshCw } from "lucide-react";
+import {
+  useEpisodeWorkspace,
+  useWorkspaceBuffer,
+  useWorkspaceDraft,
+} from "./episode-workspace";
 import type { WritingState } from "@/lib/server/writing/state";
 import { narrationText, type ScriptBlock } from "@/lib/domain/script";
 export function ScriptWorkspace({ initial }: { initial: WritingState }) {
   const [state, setState] = useState(initial);
-  const [selectedId, setSelectedId] = useState(initial.scripts[0]?.id || "");
+  const { refreshWorkspace } = useEpisodeWorkspace();
+  const [draft, setDraft, clearDraft] = useWorkspaceBuffer<{
+    selectedId: string;
+    edit: { id: string; blocks: ScriptBlock[]; title: string } | null;
+    dirty: boolean;
+  }>(`script:${initial.episode.id}`, {
+    selectedId: initial.scripts[0]?.id || "",
+    edit: null,
+    dirty: false,
+  });
+  const { selectedId, edit, dirty } = draft;
   const selected =
     state.scripts.find((s) => s.id === selectedId) || state.scripts[0];
-  const [edit, setEdit] = useState<{
-    id: string;
-    blocks: ScriptBlock[];
-    title: string;
-  } | null>(null);
   const blocks =
     edit && edit.id === selected?.id ? edit.blocks : selected?.blocks || [];
   const title =
     edit && edit.id === selected?.id ? edit.title : selected?.title || "";
   function setBlocks(update: (items: ScriptBlock[]) => ScriptBlock[]) {
-    if (selected) setEdit({ id: selected.id, blocks: update(blocks), title });
+    if (selected)
+      setDraft((current) => ({
+        ...current,
+        edit: { id: selected.id, blocks: update(blocks), title },
+        dirty: true,
+      }));
   }
   function setTitle(value: string) {
-    if (selected) setEdit({ id: selected.id, blocks, title: value });
+    if (selected)
+      setDraft((current) => ({
+        ...current,
+        edit: { id: selected.id, blocks, title: value },
+        dirty: true,
+      }));
   }
-  const [edition, setEdition] = useState(initial.editions[0]?.id || "");
+  const initialEdition = initial.editions[0]?.id || "";
+  const [edition, setEdition] = useWorkspaceBuffer(
+    `script:edition:${initial.episode.id}`,
+    initialEdition,
+  );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  useWorkspaceDraft({ dirty: dirty || edition !== initialEdition, saving: busy });
   const active = state.jobs.some((j) =>
     ["queued", "running"].includes(j.status),
   );
@@ -66,10 +90,16 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
       const result = await r.json();
       if (!r.ok) throw new Error(result.error || "Request failed");
       const next = await refresh();
+      void refreshWorkspace();
       if (action === "save") {
-        setDirty(false);
-        setEdit(null);
-        setSelectedId(next.scripts[0].id);
+        let hasNewEdits = false;
+        setDraft((current) => {
+          hasNewEdits = current.edit !== edit;
+          return hasNewEdits
+            ? current
+            : { selectedId: next.scripts[0].id, edit: null, dirty: false };
+        });
+        if (!hasNewEdits) clearDraft();
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
@@ -82,28 +112,9 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
   );
   return (
     <>
-      <nav className="episode-tabs">
-        <Link href={`/episodes/${state.episode.id}`}>The brief</Link>
-        <Link className="active" href={`/episodes/${state.episode.id}/script`}>
-          Script & sources
-        </Link>
-        <Link href={`/episodes/${state.episode.id}/studio`}>
-          Studio & exports
-        </Link>
-      </nav>
-      <header className="page-heading">
-        <div>
-          <div className="eyebrow">{state.episode.title}</div>
-          <h1>
-            A reminder,
-            <br />
-            <em>rooted in its source.</em>
-          </h1>
-          <p>
-            Shape the reflection. Keep the quotation and its context intact.
-          </p>
-        </div>
-        <Feather size={32} />
+      <header className="workspace-section-heading">
+        <h2>Script & sources</h2>
+        <p>Shape your reflection. Keep quotations and their context intact.</p>
       </header>
       {error && (
         <p className="source-notice" role="alert">
@@ -142,8 +153,8 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
         </button>
         <p>
           Uses {state.episode.llmModel}. Each model request is capped at an
-          estimated $0.10; completed requests are reused. The local worker must
-          be running: <code>pnpm worker</code>.
+          estimated $0.10; completed requests are reused. Generation continues
+          in the background and its status appears below.
         </p>
       </section>
       {state.jobs
@@ -189,8 +200,12 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
               disabled={dirty}
               value={selected.id}
               onChange={(e) => {
-                setSelectedId(e.target.value);
-                setDirty(false);
+                setDraft({
+                  selectedId: e.target.value,
+                  edit: null,
+                  dirty: false,
+                });
+                clearDraft();
               }}
             >
               {state.scripts.map((s, i) => (
@@ -218,7 +233,6 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                   maxLength={140}
                   onChange={(e) => {
                     setTitle(e.target.value);
-                    setDirty(true);
                   }}
                 />
               </label>
@@ -256,7 +270,6 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                               : b,
                           ),
                         );
-                        setDirty(true);
                       }}
                     />
                   )}

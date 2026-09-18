@@ -6,7 +6,6 @@ import {
   ArrowUpRight,
   AudioLines,
   BookOpen,
-  Clapperboard,
   Feather,
   Layers3,
   Leaf,
@@ -64,29 +63,5 @@ export function StudioNav() {
         <ArrowUpRight size={14} />
       </div>
     </aside>
-  );
-}
-
-export function WorkflowSteps() {
-  return (
-    <ol className="workflow" aria-label="Episode workflow">
-      {[
-        { icon: Feather, label: "The idea" },
-        { icon: BookOpen, label: "Sources & script" },
-        { icon: AudioLines, label: "Voice & captions" },
-        { icon: Clapperboard, label: "Video" },
-      ].map(({ icon: Icon, label }, index) => (
-        <li
-          key={label}
-          className={index === 0 ? "current" : ""}
-          aria-current={index === 0 ? "step" : undefined}
-        >
-          <span className="step-number">{index + 1}</span>
-          <Icon size={15} />
-          <span>{label}</span>
-          {index > 0 && <small>Upcoming</small>}
-        </li>
-      ))}
-    </ol>
   );
 }

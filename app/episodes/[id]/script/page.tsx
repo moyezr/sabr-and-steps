@@ -19,7 +19,7 @@ export default async function ScriptPage({
       <section className="empty-state panel">
         <h1>Writing is unavailable.</h1>
         <p>Check the database and reopen the episode.</p>
-        <Link href={`/episodes/${id}`}>Back to brief</Link>
+        <Link href={`/episodes/${id}/brief`}>Back to brief</Link>
       </section>
     );
   }

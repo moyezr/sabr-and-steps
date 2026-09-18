@@ -1,8 +1,7 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { EpisodeEditor } from "@/components/episode-editor";
+import { notFound, redirect } from "next/navigation";
 import { episodeIdSchema } from "@/lib/domain/episode";
-import { findEpisode } from "@/lib/server/db/episodes";
+import { workspaceHref } from "@/lib/domain/workspace";
+import { getEpisodeWorkspace } from "@/lib/server/workspace/state";
 
 export const dynamic = "force-dynamic";
 
@@ -13,33 +12,14 @@ export default async function EpisodePage({
 }) {
   const { id } = await params;
   if (!episodeIdSchema.safeParse(id).success) notFound();
-  let episode;
+  let workspace;
   try {
-    episode = await findEpisode(id);
-  } catch {
-    return (
-      <section className="panel empty-panel">
-        <h1>The workspace is offline.</h1>
-        <p>
-          Start the local database, then reopen your episode. Your saved work is
-          still in its database volume.
-        </p>
-        <Link href="/" className="text-link">
-          Back to episodes
-        </Link>
-      </section>
-    );
+    workspace = await getEpisodeWorkspace(id);
+  } catch (error) {
+    if (error instanceof Error && error.message === "EPISODE_NOT_FOUND")
+      notFound();
+    // The parent layout displays the database recovery state.
+    return null;
   }
-  if (!episode) notFound();
-  return (
-    <>
-      <nav className="episode-tabs">
-        <Link className="active" href={`/episodes/${episode.id}`}>
-          The brief
-        </Link>
-        <Link href={`/episodes/${episode.id}/script`}>Script & sources</Link>
-      </nav>
-      <EpisodeEditor key={episode.id} episode={episode} />
-    </>
-  );
+  redirect(workspaceHref(id, workspace.defaultSection));
 }

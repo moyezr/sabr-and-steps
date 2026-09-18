@@ -63,7 +63,7 @@ export function EpisodeLibrary({ episodes }: { episodes: Episode[] }) {
                 </span>
               </div>
             </div>
-            <span className="pill">Idea</span>
+            <span className="pill">Open editor</span>
             <span className="episode-date">
               {new Date(episode.updatedAt).toLocaleDateString("en-GB", {
                 month: "short",

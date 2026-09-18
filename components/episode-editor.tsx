@@ -29,7 +29,11 @@ import {
   type Episode,
   type EpisodeInput,
 } from "@/lib/domain/episode";
-import { WorkflowSteps } from "./studio-nav";
+import {
+  useEpisodeWorkspace,
+  useWorkspaceBuffer,
+  useWorkspaceDraft,
+} from "./episode-workspace";
 
 const themeLabels = {
   hope: "Hope & reassurance",
@@ -47,23 +51,33 @@ export function EpisodeEditor({
   initial?: Partial<EpisodeInput>;
 }) {
   const router = useRouter();
-  const [values, setValues] = useState<EpisodeInput>(
-    episode ?? { ...EMPTY_EPISODE, ...initial },
-  );
-  const [saved, setSaved] = useState<EpisodeInput | null>(episode ?? null);
-  const [revision, setRevision] = useState(episode?.revision ?? 0);
+  const { refreshWorkspace } = useEpisodeWorkspace();
+  const [draft, setDraft, clearDraft] = useWorkspaceBuffer<{
+    values: EpisodeInput;
+    saved: EpisodeInput | null;
+    revision: number;
+  }>(`brief:${episode?.id || "new"}`, {
+    values: episode ?? { ...EMPTY_EPISODE, ...initial },
+    saved: episode ?? null,
+    revision: episode?.revision ?? 0,
+  });
+  const { values, saved, revision } = draft;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [layout, setLayout] = useState<"landscape" | "vertical">("landscape");
   const submitting = useRef(false);
   const dirty = JSON.stringify(values) !== JSON.stringify(saved);
+  useWorkspaceDraft({ dirty, saving: busy });
 
   function change<K extends keyof EpisodeInput>(
     key: K,
     value: EpisodeInput[K],
   ) {
-    setValues((current) => ({ ...current, [key]: value }));
+    setDraft((current) => ({
+      ...current,
+      values: { ...current.values, [key]: value },
+    }));
     setNotice("");
   }
 
@@ -97,12 +111,18 @@ export function EpisodeEditor({
         return;
       }
       if (!episode) {
+        clearDraft();
         router.replace(`/episodes/${result.episode.id}`);
         return;
       }
-      setRevision(result.episode.revision);
-      setSaved(values);
+      let hasNewEdits = false;
+      setDraft((current) => {
+        hasNewEdits = JSON.stringify(current.values) !== JSON.stringify(values);
+        return { ...current, revision: result.episode.revision, saved: values };
+      });
+      if (!hasNewEdits) clearDraft();
       setNotice("Saved to your workspace.");
+      void refreshWorkspace();
       router.refresh();
     } catch {
       setError(
@@ -116,29 +136,42 @@ export function EpisodeEditor({
 
   return (
     <>
-      <div className="page-topline">
-        <Link href="/" className="back-link">
-          <ArrowLeft size={16} /> All episodes
-        </Link>
-        <span className="eyebrow">YOUR NEXT SMALL STEP</span>
-      </div>
-      <header className="page-heading editor-heading">
+      {!episode && (
+        <div className="page-topline">
+          <Link href="/" className="back-link">
+            <ArrowLeft size={16} /> All episodes
+          </Link>
+          <span className="eyebrow">YOUR NEXT SMALL STEP</span>
+        </div>
+      )}
+      <header
+        className={
+          episode ? "workspace-section-heading" : "page-heading editor-heading"
+        }
+      >
         <div>
           <div className="eyebrow">EPISODE BRIEF</div>
-          <h1>
-            {episode
-              ? "Shape your reminder."
-              : "Begin with a little intention."}
-          </h1>
+          {episode ? (
+            <h2>Idea & intention</h2>
+          ) : (
+            <h1>Begin with a little intention.</h1>
+          )}
           <p>
             Who needs to hear this, and what do you hope they carry with them?
           </p>
         </div>
-        <span className="pill">
-          <span className="status-dot" /> Idea
-        </span>
+        {!episode && (
+          <span className="pill">
+            <span className="status-dot" /> New episode
+          </span>
+        )}
       </header>
-      <WorkflowSteps />
+      {!episode && (
+        <p className="source-notice">
+          Create your episode to open script, voice, music, backgrounds, and
+          export controls.
+        </p>
+      )}
       <form onSubmit={save} className="editor-grid">
         <section className="editor-main panel">
           <div className="section-kicker">
@@ -379,8 +412,8 @@ export function EpisodeEditor({
           <div className="credit-note">
             <span className="status-dot" />
             <p>
-              Saving an idea uses no AI credits. Voice, source research, and
-              generation arrive in the next stages.
+              Saving an idea uses no AI credits. Use the editor sections to work
+              on your script, voice, picture, and sound.
             </p>
           </div>
         </aside>
