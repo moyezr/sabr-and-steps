@@ -265,6 +265,11 @@ export const scriptRevisions = pgTable(
     blocks: jsonb("blocks").notNull(),
     retrieval: jsonb("retrieval").notNull(),
     checksum: text("checksum").notNull(),
+    label: text("label").notNull().default("Version"),
+    changeKind: text("change_kind").notNull().default("generated"),
+    generationInstructions: text("generation_instructions")
+      .notNull()
+      .default(""),
     reviewState: text("review_state").notNull().default("unreviewed"),
     reviewNotes: text("review_notes").notNull().default(""),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
@@ -274,7 +279,65 @@ export const scriptRevisions = pgTable(
   },
   (t) => [
     check("script_review", sql`${t.reviewState} IN ('unreviewed','reviewed')`),
+    check(
+      "script_change_kind",
+      sql`${t.changeKind} IN ('generated','checkpoint','restored')`,
+    ),
+    check(
+      "script_label_length",
+      sql`char_length(trim(${t.label})) BETWEEN 1 AND 140`,
+    ),
     index("script_episode").on(t.episodeId, t.createdAt),
+  ],
+);
+
+export const episodeWorkspaceStates = pgTable(
+  "episode_workspace_states",
+  {
+    episodeId: uuid("episode_id")
+      .primaryKey()
+      .references(() => episodes.id),
+    selectedScriptId: uuid("selected_script_id").references(
+      () => scriptRevisions.id,
+    ),
+    revision: integer("revision").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check("workspace_state_revision", sql`${t.revision} > 0`),
+    index("workspace_selected_script").on(t.selectedScriptId),
+  ],
+);
+
+export const episodeScriptDrafts = pgTable(
+  "episode_script_drafts",
+  {
+    episodeId: uuid("episode_id")
+      .primaryKey()
+      .references(() => episodes.id),
+    baseScriptId: uuid("base_script_id").references(() => scriptRevisions.id),
+    revision: integer("revision").notNull().default(1),
+    title: text("title").notNull(),
+    blocks: jsonb("blocks").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check("script_draft_revision", sql`${t.revision} > 0`),
+    check(
+      "script_draft_title_length",
+      sql`char_length(trim(${t.title})) BETWEEN 1 AND 140`,
+    ),
+    index("script_draft_base_script").on(t.baseScriptId),
   ],
 );
 
