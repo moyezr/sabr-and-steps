@@ -108,7 +108,7 @@
       "area": "video",
       "title": "Preview and render two centered-caption formats",
       "user_visible_behavior": "One composition produces readable landscape and vertical videos with configurable background and audio.",
-      "status": "in_progress",
+      "status": "blocked",
       "verification": [
         "Render a short fixture at 1920x1080 and 1080x1920 from the same composition revision.",
         "Inspect text wrapping, source references, safe margins, and deterministic frame output.",
@@ -123,7 +123,7 @@
         "2026-09-16: Creator upload/configuration workflow verified with 20 unit tests, 3 database suites, build, deterministic GIF frames, all audio-mode worker exports and browser upload/save/reload. See docs/evidence/2026-09-16-configurable-studio.md.",
         "2026-09-16: Full 148.16-second text-only image/music example exported in both formats. Actual frames, full decoding, music loop/fade/peak analysis and downloaded checksum passed; no speech dispatch."
       ],
-      "notes": "Creator-requested upload/configuration workflow implemented, including still images/GIFs, music looping/fades, optional narration, reading speed and immutable preview revisions. Video backgrounds deferred. Technical acceptance recorded in 2026-09-16 evidence; creator music/listening feedback remains pending."
+      "notes": "Creator-requested upload/configuration workflow implemented, including still images/GIFs, music looping/fades, optional narration, reading speed and immutable preview revisions. Video backgrounds deferred. Technical acceptance recorded in 2026-09-16 evidence; creator music/listening feedback remains pending. Paused while the creator-requested F008 navigation milestone is implemented; remaining creator aesthetic/music/listening feedback is required. Resume after connected navigation is verified and creator feedback is available; preserve existing technical acceptance and all remaining criteria."
     },
     {
       "id": "F006",
@@ -158,6 +158,26 @@
       ],
       "evidence": [],
       "notes": "Required channel capability after the initial Qur'an-based pilot; complete Bukhari API coverage is not assumed."
+    },
+    {
+      "id": "F008",
+      "priority": 8,
+      "area": "studio",
+      "title": "Connect the episode editor workspace",
+      "user_visible_behavior": "Opening an episode loads its existing work and provides direct navigation between Idea, Script & sources, Voice & captions, Music, Backgrounds, Video, and Exports without losing unsaved edits silently.",
+      "status": "passing",
+      "verification": [
+        "Reopen the existing pilot at its episode URL; verify composition-first routing and retained script, studio settings, previews, and earlier downloads.",
+        "Use every section link and direct URL with keyboard and browser navigation; verify active location and mobile layout.",
+        "Open an episode with no script or composition and verify accessible sections, useful empty states, and prerequisite-specific disabled actions.",
+        "Verify server-derived stage states for queued/running/failed jobs and stale scripts, voice/captions, compositions, and exports without model calls.",
+        "Change a form without saving; verify media query-section switches preserve edits, in-app links and browser reload/close warn before discarding, cancelling preserves edits, and save/reload retains saved values. Verify browser Back/Forward on saved state.",
+        "Verify malformed or missing episode IDs produce a not-found response and existing render/download paths remain usable."
+      ],
+      "evidence": [
+        "2026-09-18: Shared seven-section workspace, stage summary, existing-project routing, local draft protection, empty states, retained previews/exports, keyboard/mobile behavior, and malformed/missing routes passed automated and browser acceptance. pnpm check passed 27 unit tests plus lint/types/harness, all 3 pnpm test:db suites passed, and pnpm build passed. See docs/evidence/2026-09-18-connected-editor.md."
+      ],
+      "notes": "PLAN.md milestone 1 delivered without a schema migration or provider call. The mounted episode layout retains dirty edits across section switches and Back/Forward and warns before leaving or reloading. Drafts are not yet persisted across reload/restart. Explicit selected versions, autosave, undo/named history, targeted rewrites, scene timeline, richer media controls, and new format selection remain later milestones. Existing newest-artifact selection remains until milestone 2. F005 keeps its original criteria and evidence and remains blocked on creator feedback."
     }
   ]
 }

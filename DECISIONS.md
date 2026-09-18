@@ -107,3 +107,14 @@ Composition v2 adds immutable, checksummed image/audio snapshots, image framing/
 Uploads are bounded to 30 MB, inspected locally with FFprobe and restricted file protocols, served by asset IDs, and retained under the ignored data directory. GIFs use matching Remotion 4.0.524 frame-based decoding for deterministic preview/render loops, with duration/frame/pixel limits. Assets carry source notes; missing notes do not imply reuse clearance. The render child receives only the selected verified local assets. Music is mixed with conservative headroom and explicit fades. No additional inference is needed for text-only videos.
 
 One generated lake image and two original procedural instrumental sketches were created before the creator clarified that supplied assets are optional. They remain local conveniences; uploads are the primary workflow. No new voice or LLM calls were made for this feature.
+
+
+## D018 — Connected episode editor, delivered in bounded milestones
+
+**Accepted by the creator, 2026-09-16; milestone 1 delivered 2026-09-18.** [PLAN.md](PLAN.md) refines D016 into a persistent episode editor. Navigation is free between Idea, Script & sources, Voice & captions, Music, Backgrounds, Video, and Exports; prerequisites constrain actions rather than hiding whole sections. Existing episodes, media, immutable compositions, and downloads must remain usable.
+
+Milestone 1 connects the existing routes with a shared episode header and real navigation. The entry URL opens the most developed available work: a composition opens Video, otherwise a script opens Script, otherwise Idea. A server-side read-only summary derives stage readiness from persisted revisions and jobs; labels must not imply that stale media or incomplete review is ready. Studio sections reuse existing controls and preview data. Unsaved-edit protection covers in-app links and browser reload/close, with media query switches and intra-episode Back/Forward navigation preserving local edits in the mounted layout. This is a navigation guard, not persisted autosave; recovery after reload or restart belongs to milestone 2 working drafts.
+
+The current newest-artifact lookup remains an explicit limitation for this first milestone. Milestone 2 adds persisted version selection, working drafts, undo/history, autosave, and narrower dependency invalidation. Idea assistance and targeted script rewriting follow in milestone 3; timeline/media controls in milestone 4; format-specific export and consolidated review in milestone 5. Do not expose these planned capabilities as functioning controls before their persistence and acceptance checks exist.
+
+No schema migration or new model calls were required to connect navigation. Durable generation, immutable composition data shared by preview/render, canonical quotations, speech credit/rights checks, and private export restrictions remain in force. F008 is passing; F005 retains its existing evidence and waits for creator feedback.

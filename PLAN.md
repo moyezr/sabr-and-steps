@@ -2,7 +2,7 @@
 
 Date: 2026-09-16.
 
-Status: proposed direction accepted by the creator; implementation has not started. This document records the plan, not completed features. Implementation status and session results remain in `PROGRESS.md` and `feature_list.json`.
+Status: accepted by the creator; milestone 1 is complete as F008. Milestone 2 is the next bounded implementation. This document records intended behavior; verification and session results remain in `PROGRESS.md` and `feature_list.json`.
 
 ## Goal
 
@@ -10,7 +10,7 @@ Make each episode a persistent editing workspace where the creator can move free
 
 The creator should be able to begin with a vague feeling or scenario, develop an Islamic reminder in the Sabr & Steps format, iterate with different models, manually revise the script, bring their own music and backgrounds, adjust the video, and export the desired format.
 
-## Findings from the current app
+## Findings that motivated the plan
 
 - The prominent workflow steps are non-clickable labels. `WorkflowSteps` always marks Idea as current and labels later stages Upcoming.
 - Separate script and studio screens exist, but the episode interface does not connect them into a consistent editing experience.
@@ -131,15 +131,23 @@ Changes should affect only work that depends on them.
 
 ## Implementation milestones
 
-Implement one bounded milestone at a time, with acceptance evidence before proceeding. Reconcile the existing feature tracker and superseded design decisions when implementation begins.
+Implement one bounded milestone at a time, with acceptance evidence before proceeding. F008 tracks milestone 1; F005 is paused for creator feedback and resumes after the navigation milestone. D018 records the phased editor direction.
 
-| Order | Deliverable |
-| --- | --- |
-| 1 | Connected episode workspace, working navigation, existing-project loading |
-| 2 | Autosave, explicit version selection, history, correct change tracking |
-| 3 | Idea assistance, iterative script editing, source selection, partial rewrites |
-| 4 | Scene timeline, voice/caption editing, media library, visual controls |
-| 5 | Format-specific export, consolidated review, complete workflow testing |
+| Order | Deliverable | Status |
+| --- | --- | --- |
+| 1 | Connected episode workspace, working navigation, existing-project loading | Completed (F008) |
+| 2 | Autosave, explicit version selection, history, correct change tracking | Planned |
+| 3 | Idea assistance, iterative script editing, source selection, partial rewrites | Planned |
+| 4 | Scene timeline, voice/caption editing, media library, visual controls | Planned |
+| 5 | Format-specific export, consolidated review, complete workflow testing | Planned |
+
+### Milestone 1 boundary
+
+Connect existing functionality through a shared episode workspace: Idea, Script & sources, Voice & captions, Music, Backgrounds, Video, and Exports. The episode entry route should open Video when a composition exists, otherwise Script when a draft exists, otherwise Idea. Idea remains directly reachable at `/episodes/[id]/brief`; script keeps its existing route and studio sections have addressable query links.
+
+Load existing persisted artifacts and show stage states derived from their revisions and outstanding jobs. Keep incomplete sections accessible, explain prerequisites beside affected actions, preserve unsaved media edits when switching Studio sections, guard in-app links and browser reload/close, and retain earlier exports. The mounted episode workspace retains dirty drafts across intra-episode Back/Forward navigation; persisted recovery after reload or restart remains part of milestone 2. Reuse existing upload, timing, preview, and render controls without claiming new media capabilities.
+
+This milestone does not add autosave, undo/redo, named history, explicit selected-version persistence, partial AI rewrites, a scene timeline, or new rendering formats. Existing latest-artifact selection remains until milestone 2. No database migration or model inference is required. Completion requires the connected-editor checks in [docs/verification.md](docs/verification.md), not merely compilation.
 
 Retain existing episodes, source records, media, and exports during migration. Future implementation should use focused commits with actual timestamps and follow the repository's verification and handoff rules.
 

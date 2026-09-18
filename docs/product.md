@@ -23,7 +23,11 @@
 5. Save a preview revision, inspect both aspect ratios, edit the words or picture/sound, and save again. Previous exports remain accessible.
 6. Render MP4s, captions, and a description with references for manual upload.
 
-Suggested areas are Ideas, Script & Sources, Studio, and Exports. These are design guidance, not completed screens.
+The accepted direction is a connected episode editor with Idea, Script & sources, Voice & captions, Music, Backgrounds, Video, and Exports. Each section remains reachable throughout creation; unavailable actions explain their prerequisites. The shared episode identity and stage states help the creator move between existing words, media, preview, and downloads without restarting the workflow.
+
+Milestone 1 is delivered as F008: the existing editing routes now reopen the most developed available work, show accurate saved, stale, generating, failed, and uncertain states, and guard unsaved edits on navigation. Existing uploads, caption timing, preview revisions, and download history are reused. New episodes show useful empty states in every section.
+
+The full editor in [PLAN.md](../PLAN.md) also calls for explicit version selection, autosave/undo/history, AI alternatives and partial rewrites, a scene timeline, richer sound/visual controls, and format-specific exports. Those later milestones are planned, not current capabilities. Existing latest-artifact selection persists until milestone 2.
 
 ## Visual and editorial direction
 

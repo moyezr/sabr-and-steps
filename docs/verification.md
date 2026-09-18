@@ -23,6 +23,21 @@
 
 Latest evidence: [episode studio acceptance](evidence/2026-09-14-episode-studio.md).
 
+## Connected episode editor acceptance (F008)
+
+Keep this checklist for regressions. The completed milestone used existing local artifacts and deterministic disposable fixtures; no model or speech calls were needed.
+
+Latest evidence: [connected episode editor](evidence/2026-09-18-connected-editor.md).
+
+1. Open the existing “When waiting feels heavy” episode from the library and its direct URL. Confirm an existing composition opens Video and retains the existing preview, settings, and prior export downloads. Open a script-only fixture and an idea-only fixture to check Script and Idea entry routing respectively.
+2. Visit Idea, Script & sources, Voice & captions, Music, Backgrounds, Video, and Exports through their links and direct URLs. Confirm the episode title stays consistent, exactly one section is current, and refresh preserves the addressed section. Existing script/source context, uploads, caption timing, and saved preview controls remain reachable.
+3. On an idea-only episode, open every section. Confirm helpful empty states and that only actions missing prerequisites are disabled. Test malformed and valid-but-missing episode IDs; both must produce a not-found response without a server crash or database mutation.
+4. Use deterministic job/revision fixtures for queued, running, failed, and stale states. Confirm a stale script/take/caption/composition does not receive a misleading ready state; text-only mode does not require a voice take. Stage status reads must not enqueue jobs or mutate artifacts.
+5. Edit Idea, Script, and Studio forms without saving. Switch between Studio section queries and confirm local media edits survive. Exercise in-app links to another editor route and the library: cancel a discard warning and verify input survives, then accept and verify navigation completes. Check browser reload/close protection (`beforeunload`). Save and reload to confirm values persist and successful saves clear the warning. Dirty intra-episode Back/Forward recovery is verified for the mounted layout; persisted recovery after reload or restart remains a milestone 2 requirement. These guards do not imply autosave or history.
+6. Open Exports and retrieve a prior MP4, captions, and source description. Verify current export availability respects unsaved/stale states and existing review/rights restrictions. Do not claim version-selection or new format controls; these are later milestones.
+7. Exercise keyboard traversal and activation of section links, the active-location announcement, narrow-screen navigation, controls, and Player layout. Check both landscape and vertical preview selection where an existing composition is available.
+8. Run `pnpm check`, applicable disposable database checks for summary queries, and `pnpm build`. Record observed browser paths, failures, and remaining gaps in a dated evidence file and `PROGRESS.md` before changing F008 to `passing`.
+
 ## Match checks to changes
 
 | Change | Evidence |

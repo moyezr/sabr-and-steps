@@ -1,18 +1,27 @@
 # Progress
 
-Last updated: 2026-09-16.
+Last updated: 2026-09-18.
 
 ## Current state
 
 - Repository: `/Users/moyezrabbani/Development/Projects/sabr-and-steps`.
-- H001 and F001–F003 are complete. A real narrated private pilot has been generated in both formats. F005 is active for the creator’s configurable media workflow. F004 is paused for listening feedback; F006 publication/review acceptance remains pending.
+- H001 and F001–F003 and F008 are complete. A real narrated private pilot has been generated in both formats. F005 remains blocked on creator listening and aesthetic feedback; F004 is paused for listening feedback; F006 publication/review acceptance remains pending. `PLAN.md` milestone 2 is the next bounded editor increment.
 - Branded Next.js 16.2.6 / React 19.2.6 / HeroUI 3.2.5 studio: persisted episode ideas, responsive editor, Providers configuration, and Sources browser with search, references, context, Arabic, and provenance.
 - Drizzle 0.45.2, PostgreSQL 17, pgvector 0.8.2 are installed and migrated. The project uses its own Docker volume and loopback port 55432.
 - Script options are exactly `openai/gpt-5.6-luna` and `google/gemini-3.8-flash` through OpenRouter. Episode preferences, retrieval/draft generation, a usage ledger and ElevenLabs quota/rights guards are implemented. Live ElevenLabs narration and both private pilot exports are verified.
 - Startup: `./init.sh`, `pnpm db:configure`, `pnpm db:up`, `pnpm db:migrate`, then `pnpm dev --hostname 127.0.0.1`.
 - Checks: `pnpm check`, `pnpm test:db` (3 suites), `pnpm build`. See the active session for the latest results and remaining verification.
 
-## Latest session — 2026-09-16: establish Git history
+## Latest session — 2026-09-18: connected episode editor, milestone 1
+
+- F008 is passing. The shared episode shell keeps the title, save state, export access, and seven real section links available throughout the workflow. Entry routing opens Video for an episode with a composition, Script for a script-only episode, and Idea otherwise. A read-only workspace summary reports saved, stale, active, failed, and uncertain states without provider calls or mutations.
+- Existing capabilities remain connected: direct idea and script editing, source context, narration and reading-card controls, media uploads and mixing, both preview orientations, caption timing, preview revisions, render actions, and current and earlier downloads. Empty sections stay reachable and explain their prerequisites.
+- Episode-local buffers retain unsaved Idea, Script, source-edition, voice setup, upload, timing, and media settings while moving between sections or using Back/Forward. A custom leave dialog protects navigation outside the episode; `beforeunload` protects reload/close. These buffers are memory-backed, not milestone-2 autosave.
+- Verification passed: `pnpm check` with 27 unit tests, lint, types, and harness checks; all three `pnpm test:db` suites; `pnpm build`; and `git diff --check`. Browser acceptance covered the real pilot, disposable idea-only and script-only fixtures, save/reload, every section and direct route, keyboard activation, phone layout, vertical preview, local draft recovery, leave-dialog cancel/discard, 404 routes, and MP4/SRT/description retrieval. See [connected editor evidence](docs/evidence/2026-09-18-connected-editor.md).
+- No model or speech request was made. The disposable editor server/database were stopped after verification. The rebuilt production app remains available on `http://127.0.0.1:3107`.
+- Next action: begin milestone 2 with a bounded script-version slice: persisted selected script, revision-checked working draft autosave, and named immutable script history. Voice, caption, and composition selectors follow separately.
+
+## Prior session — 2026-09-16: establish Git history
 
 - Maintenance requested by the creator: configure `origin` as `https://github.com/moyezr/sabr-and-steps.git`, use the authenticated `moyezr` account, and push a week-spanning commit history. The destination was empty and public when inspected.
 - No previous development commits existed. The initial import is organized into seven logical groups with arranged author dates September 10–16 and actual committer timestamps. Every import commit identifies the reconstruction; these are not recovered daily snapshots. See D017 in `DECISIONS.md`.
@@ -90,4 +99,4 @@ The next action from that setup session, F001, is now complete as recorded above
 - Audition direct speech providers and verify actual balances and publication rights. Free credits do not automatically grant commercial rights. Speech account balances/authentication remain unverified; Quran Foundation authentication was verified separately. See [provider policy](docs/providers.md).
 - Qur’an import and a foreground checkpointed source worker are implemented. Hadith ingestion remains unimplemented. Retrieval, AI drafts and the durable media queue are implemented; narration and rendering are under active verification as described above. Footnote explanations are not fetched; markers and raw attributes are retained. The video layout sketches remain explicitly labeled as sketches.
 - Unit and database tests exist; browser acceptance was run through automation tools with documented steps, not a checked-in browser test suite.
-- Git was initialized locally; all files remain uncommitted and no remote is configured.
+- Git history and the `moyezr/sabr-and-steps` remote are established. Current editor work is on `codex/episode-editor`; new implementation commits use actual timestamps.
