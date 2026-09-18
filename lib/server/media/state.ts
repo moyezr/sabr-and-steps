@@ -13,6 +13,9 @@ import { writingState } from "../writing/state";
 import { cueSchema, compositionSchema } from "../../domain/media";
 export async function mediaState(episodeId: string) {
   const writing = await writingState(episodeId);
+  const selectedScript = writing.scripts.find(
+    (script) => script.id === writing.selectedScriptId,
+  );
   const db = getDb();
   const ids = writing.scripts.map((s) => s.id);
   const takes = ids.length
@@ -64,8 +67,8 @@ export async function mediaState(episodeId: string) {
       purpose: t.purpose,
       audioUrl: `/api/media/${t.id}`,
       stale:
-        t.scriptId !== writing.scripts[0]?.id ||
-        writing.scripts[0]?.episodeRevision !== writing.episode.revision,
+        t.scriptId !== selectedScript?.id ||
+        selectedScript?.episodeRevision !== writing.episode.revision,
     })),
     tracks: tracks.map((t) => ({
       id: t.id,
@@ -83,8 +86,8 @@ export async function mediaState(episodeId: string) {
       stale:
         (c.voiceTakeId !== null &&
           c.voiceTakeId !== takes.find((t) => t.scriptId === c.scriptId)?.id) ||
-        c.scriptId !== writing.scripts[0]?.id ||
-        writing.scripts[0]?.episodeRevision !== writing.episode.revision ||
+        c.scriptId !== selectedScript?.id ||
+        selectedScript?.episodeRevision !== writing.episode.revision ||
         (c.captionTrackId !== null &&
           tracks.find((t) => t.voiceTakeId === c.voiceTakeId)?.id !==
             c.captionTrackId),

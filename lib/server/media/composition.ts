@@ -1,10 +1,11 @@
 import "server-only";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db/client";
 import {
   captionTracks,
   compositions,
+  episodeWorkspaceStates,
   episodes,
   scriptRevisions,
   voiceTakes,
@@ -46,20 +47,40 @@ export async function saveComposition(episodeId: string, input: unknown) {
         .for("update")
     )[0];
     if (!episode) throw new Error("EPISODE_NOT_FOUND");
-    const script = (
+    const requestedScript = (
       await tx
         .select()
         .from(scriptRevisions)
-        .where(eq(scriptRevisions.episodeId, episodeId))
-        .orderBy(desc(scriptRevisions.createdAt))
-        .limit(1)
+        .where(
+          and(
+            eq(scriptRevisions.id, data.scriptId),
+            eq(scriptRevisions.episodeId, episodeId),
+          ),
+        )
     )[0];
+    const workspace = (
+      await tx
+        .select({ selectedScriptId: episodeWorkspaceStates.selectedScriptId })
+        .from(episodeWorkspaceStates)
+        .where(eq(episodeWorkspaceStates.episodeId, episodeId))
+    )[0];
+    const fallback = workspace?.selectedScriptId
+      ? undefined
+      : (
+          await tx
+            .select({ id: scriptRevisions.id })
+            .from(scriptRevisions)
+            .where(eq(scriptRevisions.episodeId, episodeId))
+            .orderBy(desc(scriptRevisions.createdAt), desc(scriptRevisions.id))
+            .limit(1)
+        )[0];
     if (
-      !script ||
-      script.id !== data.scriptId ||
-      script.episodeRevision !== episode.revision
+      !requestedScript ||
+      (workspace?.selectedScriptId || fallback?.id) !== requestedScript.id ||
+      requestedScript.episodeRevision !== episode.revision
     )
       throw new Error("SCRIPT_REVISION_CHANGED");
+    const script = requestedScript;
     const imageAsset = data.imageId
       ? await checkedAsset(data.imageId, "image")
       : null;
@@ -179,16 +200,37 @@ export async function validateCurrentComposition(id: string) {
   const episode = (
     await db.select().from(episodes).where(eq(episodes.id, c.episodeId))
   )[0];
-  const script = (
+  const workspace = (
     await db
-      .select()
-      .from(scriptRevisions)
-      .where(eq(scriptRevisions.episodeId, c.episodeId))
-      .orderBy(desc(scriptRevisions.createdAt))
-      .limit(1)
+      .select({ selectedScriptId: episodeWorkspaceStates.selectedScriptId })
+      .from(episodeWorkspaceStates)
+      .where(eq(episodeWorkspaceStates.episodeId, c.episodeId))
   )[0];
+  const fallback = workspace?.selectedScriptId
+    ? undefined
+    : (
+        await db
+          .select({ id: scriptRevisions.id })
+          .from(scriptRevisions)
+          .where(eq(scriptRevisions.episodeId, c.episodeId))
+          .orderBy(desc(scriptRevisions.createdAt), desc(scriptRevisions.id))
+          .limit(1)
+      )[0];
+  const selectedScriptId = workspace?.selectedScriptId || fallback?.id;
+  const selectedScript = selectedScriptId
+    ? (
+        await db
+          .select({ episodeRevision: scriptRevisions.episodeRevision })
+          .from(scriptRevisions)
+          .where(eq(scriptRevisions.id, selectedScriptId))
+      )[0]
+    : undefined;
   const data = compositionSchema.parse(c.data);
-  if (script?.id !== c.scriptId || script.episodeRevision !== episode?.revision)
+  if (
+    !episode ||
+    selectedScriptId !== c.scriptId ||
+    selectedScript?.episodeRevision !== episode.revision
+  )
     throw new Error("COMPOSITION_STALE");
   if (data.mode === "text") {
     if (c.voiceTakeId || c.captionTrackId || data.audioUrl)
@@ -213,8 +255,7 @@ export async function validateCurrentComposition(id: string) {
       .limit(1)
   )[0];
   if (
-    script?.id !== c.scriptId ||
-    script.episodeRevision !== episode.revision ||
+    selectedScriptId !== c.scriptId ||
     latestTake?.id !== c.voiceTakeId ||
     track?.id !== c.captionTrackId
   )

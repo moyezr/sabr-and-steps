@@ -40,6 +40,7 @@ export type EpisodeWorkspaceState = {
 /** A minimal read model; no provider payloads, source text, or asset paths. */
 export type WorkspaceInput = {
   episode: { id: string; title: string; updatedAt: string; revision: number };
+  selectedScriptId?: string | null;
   scripts: readonly { id: string; episodeRevision: number }[];
   takes: readonly { id: string; scriptId: string; stale: boolean }[];
   tracks: readonly { id: string; voiceTakeId: string }[];
@@ -61,7 +62,9 @@ export type WorkspaceInput = {
 export function summarizeWorkspace(
   input: WorkspaceInput,
 ): EpisodeWorkspaceState {
-  const script = input.scripts[0];
+  const script =
+    input.scripts.find((item) => item.id === input.selectedScriptId) ||
+    input.scripts[0];
   const composition = input.compositions[0];
   const take = input.takes.find((item) => item.scriptId === script?.id);
   const track = input.tracks.find((item) => item.voiceTakeId === take?.id);

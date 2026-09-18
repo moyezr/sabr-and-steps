@@ -1,9 +1,17 @@
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import { writingState } from "@/lib/server/writing/state";
 import { findEpisode } from "@/lib/server/db/episodes";
 import { enqueueJob, retryJob } from "@/lib/server/jobs/store";
 import { saveDraft, reviewDraft } from "@/lib/server/writing/drafts";
 import { mutationAllowed, readJson } from "@/lib/server/http";
+import {
+  autosaveWorkingDraft,
+  checkpointWorkingDraft,
+  discardWorkingDraft,
+  restoreScriptVersion,
+  selectScriptVersion,
+} from "@/lib/server/writing/versions";
 const idSchema = z.string().uuid();
 export async function GET(
   _request: Request,
@@ -36,7 +44,17 @@ export async function POST(
   try {
     const body = z
       .object({
-        action: z.enum(["generate", "save", "review", "retry"]),
+        action: z.enum([
+          "generate",
+          "autosave",
+          "select",
+          "checkpoint",
+          "discard",
+          "restore",
+          "save",
+          "review",
+          "retry",
+        ]),
         data: z.unknown(),
       })
       .parse(await readJson(request));
@@ -45,6 +63,7 @@ export async function POST(
         .object({
           importId: idSchema,
           episodeRevision: z.number().int().positive(),
+          generationInstructions: z.string().max(2000).default(""),
         })
         .parse(body.data);
       const episode = await findEpisode(id);
@@ -59,11 +78,21 @@ export async function POST(
           episodeId: id,
           episodeRevision: episode.revision,
           importId: input.importId,
+          requestId: randomUUID(),
+          generationInstructions: input.generationInstructions,
         },
         id,
       );
       return Response.json({ jobId: job.id }, { status: 202 });
     }
+    if (body.action === "autosave")
+      await autosaveWorkingDraft(id, body.data);
+    if (body.action === "select") await selectScriptVersion(id, body.data);
+    if (body.action === "checkpoint")
+      await checkpointWorkingDraft(id, body.data);
+    if (body.action === "discard") await discardWorkingDraft(id, body.data);
+    if (body.action === "restore")
+      await restoreScriptVersion(id, body.data);
     if (body.action === "save") await saveDraft(id, body.data);
     if (body.action === "review") {
       const data = z
@@ -97,7 +126,10 @@ export async function POST(
       { error: message },
       {
         status:
-          message.includes("CONFLICT") || message.includes("CHANGED")
+          message.includes("CONFLICT") ||
+          message.includes("CHANGED") ||
+          message.includes("DRAFT_EXISTS") ||
+          message.includes("DRAFT_NOT_FOUND")
             ? 409
             : 503,
       },

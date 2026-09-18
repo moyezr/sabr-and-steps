@@ -5,6 +5,7 @@ import { listSourceImports } from "../db/sources";
 import { listDrafts } from "./drafts";
 import { listJobs } from "../jobs/store";
 import { scriptBlockSchema } from "../../domain/script";
+import { scriptVersionState } from "./versions";
 const retrievalSchema = z.object({
   sources: z.array(
     z.object({
@@ -17,15 +18,17 @@ const retrievalSchema = z.object({
   ),
 });
 export async function writingState(episodeId: string) {
-  const [episode, editions, scripts, jobs] = await Promise.all([
+  const [episode, editions, scripts, jobs, versions] = await Promise.all([
     findEpisode(episodeId),
     listSourceImports(),
     listDrafts(episodeId),
     listJobs(episodeId),
+    scriptVersionState(episodeId),
   ]);
   if (!episode) throw new Error("EPISODE_NOT_FOUND");
   return {
     episode,
+    ...versions,
     editions: editions
       .filter((e) => e.status === "completed")
       .map((e) => ({
@@ -43,6 +46,11 @@ export async function writingState(episodeId: string) {
       reviewState: s.reviewState,
       episodeRevision: s.episodeRevision,
       importId: s.importId,
+      parentId: s.parentId,
+      label: s.label,
+      changeKind: s.changeKind,
+      generationInstructions: s.generationInstructions,
+      model: s.model,
       createdAt: s.createdAt.toISOString(),
       sources: retrievalSchema.parse(s.retrieval).sources,
     })),

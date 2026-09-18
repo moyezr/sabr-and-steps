@@ -53,6 +53,24 @@ test("workspace opens ideas, drafts, and generated episodes at their available w
   assert.equal(generated.stages.voice.label, "Update reading cards");
 });
 
+test("workspace readiness follows the persisted script selection", () => {
+  const input = fixture({
+    selectedScriptId: "selected",
+    scripts: [
+      { id: "newest-alternative", episodeRevision: 1 },
+      { id: "selected", episodeRevision: 2 },
+    ],
+    takes: [{ id: "take", scriptId: "selected", stale: false }],
+    tracks: [{ id: "track", voiceTakeId: "take" }],
+  });
+  const summary = summarizeWorkspace(input);
+  assert.equal(summary.stages.script.label, "Draft saved");
+  assert.equal(summary.stages.voice.label, "Take saved");
+
+  input.selectedScriptId = "newest-alternative";
+  assert.equal(summarizeWorkspace(input).stages.script.label, "Idea changed");
+});
+
 test("text-only previews need no voice and exports reflect the latest saved preview", () => {
   const input = fixture({
     scripts: [{ id: "script", episodeRevision: 2 }],

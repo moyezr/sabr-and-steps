@@ -355,7 +355,7 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
       narrationVolume: 1,
     });
     await validateTextComposition(silent.id);
-    await saveDraft(episode.id, {
+    const finalScript = await saveDraft(episode.id, {
       parentId: saved.id,
       title: "Edited again",
       blocks,
@@ -368,6 +368,126 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
       validateTextComposition(silent.id),
       /COMPOSITION_STALE/,
     );
+    const {
+      autosaveWorkingDraft,
+      checkpointWorkingDraft,
+      discardWorkingDraft,
+      restoreScriptVersion,
+      scriptVersionState,
+      selectFirstScript,
+      selectScriptVersion,
+    } = await import("../../lib/server/writing/versions");
+    await assert.rejects(
+      autosaveWorkingDraft(episode.id, {
+        baseScriptId: finalScript.id,
+        revision: 0,
+        title: "Unsafe draft",
+        blocks: [{ ...blocks[0], text: "Changed quotation" }, blocks[1]],
+      }),
+      /CANONICAL_QUOTATION_CHANGED/,
+    );
+    let versionState = await scriptVersionState(episode.id);
+    assert.equal(versionState.selectedScriptId, finalScript.id);
+    assert.equal(versionState.workingDraft, null);
+    const firstAutosave = await autosaveWorkingDraft(episode.id, {
+      baseScriptId: finalScript.id,
+      revision: 0,
+      title: "Autosaved working title",
+      blocks: [blocks[0], { kind: "reflection", text: "Autosaved words." }],
+    });
+    assert.equal(firstAutosave.revision, 1);
+    const concurrent = await Promise.allSettled([
+      autosaveWorkingDraft(episode.id, {
+        baseScriptId: finalScript.id,
+        revision: 1,
+        title: "Concurrent A",
+        blocks: [blocks[0], { kind: "reflection", text: "Concurrent A." }],
+      }),
+      autosaveWorkingDraft(episode.id, {
+        baseScriptId: finalScript.id,
+        revision: 1,
+        title: "Concurrent B",
+        blocks: [blocks[0], { kind: "reflection", text: "Concurrent B." }],
+      }),
+    ]);
+    assert.equal(
+      concurrent.filter((result) => result.status === "fulfilled").length,
+      1,
+    );
+    assert.equal(
+      concurrent.filter((result) => result.status === "rejected").length,
+      1,
+    );
+    versionState = await scriptVersionState(episode.id);
+    assert.equal(versionState.workingDraft?.revision, 2);
+    assert.match(versionState.workingDraft?.title || "", /^Concurrent [AB]$/);
+    await assert.rejects(
+      selectScriptVersion(episode.id, {
+        scriptId: saved.id,
+        selectionRevision: versionState.selectionRevision,
+      }),
+      /SCRIPT_DRAFT_EXISTS/,
+    );
+    const checkpoint = await checkpointWorkingDraft(episode.id, {
+      revision: versionState.workingDraft!.revision,
+      selectionRevision: versionState.selectionRevision,
+      label: "Creator checkpoint",
+    });
+    assert.equal(checkpoint.parentId, finalScript.id);
+    assert.equal(checkpoint.label, "Creator checkpoint");
+    assert.equal(checkpoint.changeKind, "checkpoint");
+    versionState = await scriptVersionState(episode.id);
+    assert.equal(versionState.selectedScriptId, checkpoint.id);
+    assert.equal(versionState.workingDraft, null);
+    await selectScriptVersion(episode.id, {
+      scriptId: saved.id,
+      selectionRevision: versionState.selectionRevision,
+    });
+    versionState = await scriptVersionState(episode.id);
+    assert.equal(versionState.selectedScriptId, saved.id);
+    await validateCurrentComposition(fresh.id);
+    const restored = await restoreScriptVersion(episode.id, {
+      scriptId: script.id,
+      selectionRevision: versionState.selectionRevision,
+      label: "Restore first version",
+    });
+    assert.notEqual(restored.id, script.id);
+    assert.equal(restored.parentId, script.id);
+    assert.equal(restored.changeKind, "restored");
+    assert.equal(restored.model, script.model);
+    assert.equal(restored.generationInstructions, script.generationInstructions);
+    versionState = await scriptVersionState(episode.id);
+    assert.equal(versionState.selectedScriptId, restored.id);
+    const alternative = (
+      await db
+        .insert(scriptRevisions)
+        .values({
+          ...script,
+          id: randomUUID(),
+          parentId: null,
+          jobId: null,
+          title: "Generated alternative",
+          label: "Generated alternative",
+          checksum: "alternative",
+          createdAt: new Date(Date.now() + 2),
+        })
+        .returning()
+    )[0];
+    await selectFirstScript(episode.id, alternative.id);
+    assert.equal(
+      (await scriptVersionState(episode.id)).selectedScriptId,
+      restored.id,
+    );
+    const disposableDraft = await autosaveWorkingDraft(episode.id, {
+      baseScriptId: restored.id,
+      revision: 0,
+      title: restored.title,
+      blocks: restored.blocks,
+    });
+    await discardWorkingDraft(episode.id, {
+      revision: disposableDraft.revision,
+    });
+    assert.equal((await scriptVersionState(episode.id)).workingDraft, null);
     // Provider fixtures are deterministic; no network or live-provider evidence.
     const { elevenSpeech } = await import(
       "../../lib/server/providers/elevenlabs"

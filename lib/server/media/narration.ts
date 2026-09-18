@@ -7,6 +7,7 @@ import path from "node:path";
 import { getDb } from "../db/client";
 import {
   scriptRevisions,
+  episodeWorkspaceStates,
   episodes,
   sourceImports,
   voiceTakes,
@@ -37,17 +38,26 @@ export async function createNarration(job: Job) {
   const episode = (
     await db.select().from(episodes).where(eq(episodes.id, script.episodeId))
   )[0];
-  if (episode.revision !== script.episodeRevision)
+  if (!episode || episode.revision !== script.episodeRevision)
     throw new Error("EPISODE_REVISION_CHANGED");
-  const latest = (
+  const workspace = (
     await db
-      .select()
-      .from(scriptRevisions)
-      .where(eq(scriptRevisions.episodeId, episode.id))
-      .orderBy(desc(scriptRevisions.createdAt))
-      .limit(1)
+      .select({ selectedScriptId: episodeWorkspaceStates.selectedScriptId })
+      .from(episodeWorkspaceStates)
+      .where(eq(episodeWorkspaceStates.episodeId, episode.id))
   )[0];
-  if (latest.id !== script.id) throw new Error("SCRIPT_REVISION_CHANGED");
+  const fallback = workspace?.selectedScriptId
+    ? undefined
+    : (
+        await db
+          .select({ id: scriptRevisions.id })
+            .from(scriptRevisions)
+            .where(eq(scriptRevisions.episodeId, episode.id))
+            .orderBy(desc(scriptRevisions.createdAt), desc(scriptRevisions.id))
+          .limit(1)
+      )[0];
+  if ((workspace?.selectedScriptId || fallback?.id) !== script.id)
+    throw new Error("SCRIPT_REVISION_CHANGED");
   if (
     episode.narrationProvider !== "auto" &&
     episode.narrationProvider !== input.provider &&
