@@ -145,7 +145,9 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
     provenance,
     uploadFile,
   ]);
-  const script = state.scripts[0],
+  const script =
+      state.scripts.find((item) => item.id === state.selectedScriptId) ||
+      state.scripts[0],
     take = state.takes.find((t) => !t.stale),
     track = state.tracks.find((t) => t.voiceTakeId === take?.id),
     composition = state.compositions[0],
