@@ -300,6 +300,15 @@ export const episodeWorkspaceStates = pgTable(
     selectedScriptId: uuid("selected_script_id").references(
       () => scriptRevisions.id,
     ),
+    selectedVoiceTakeId: uuid("selected_voice_take_id").references(
+      () => voiceTakes.id,
+    ),
+    selectedCaptionTrackId: uuid("selected_caption_track_id").references(
+      () => captionTracks.id,
+    ),
+    selectedCompositionId: uuid("selected_composition_id").references(
+      () => compositions.id,
+    ),
     revision: integer("revision").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -311,6 +320,9 @@ export const episodeWorkspaceStates = pgTable(
   (t) => [
     check("workspace_state_revision", sql`${t.revision} > 0`),
     index("workspace_selected_script").on(t.selectedScriptId),
+    index("workspace_selected_voice_take").on(t.selectedVoiceTakeId),
+    index("workspace_selected_caption_track").on(t.selectedCaptionTrackId),
+    index("workspace_selected_composition").on(t.selectedCompositionId),
   ],
 );
 

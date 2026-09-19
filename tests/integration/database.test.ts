@@ -91,7 +91,7 @@ test("fresh database migration, pgvector, persistence, constraints, and revision
   }
 });
 
-test("workspace migration backfills selection and metadata without creating drafts", async () => {
+test("workspace migrations deterministically backfill selections without deleting artifacts", async () => {
   assert(configuredDatabaseUrl, "Run pnpm db:configure and pnpm db:up first.");
   const admin = new Pool({
     connectionString: configuredDatabaseUrl,
@@ -186,12 +186,126 @@ test("workspace migration backfills selection and metadata without creating draf
       ),
     );
 
+    const firstTake = "00000000-0000-4000-8200-000000000001";
+    const selectedTake = "00000000-0000-4000-8200-000000000002";
+    const otherScriptTake = "00000000-0000-4000-8200-000000000099";
+    const firstCaption = "00000000-0000-4000-8300-000000000001";
+    const selectedCaption = "00000000-0000-4000-8300-000000000002";
+    const unrelatedCaption = "00000000-0000-4000-8300-000000000099";
+    const firstComposition = "00000000-0000-4000-8400-000000000001";
+    const selectedComposition = "00000000-0000-4000-8400-000000000002";
+    const exportId = "00000000-0000-4000-8500-000000000001";
+    const jobIds = [
+      "00000000-0000-4000-8100-000000000001",
+      "00000000-0000-4000-8100-000000000002",
+      "00000000-0000-4000-8100-000000000003",
+      "00000000-0000-4000-8100-000000000004",
+    ];
+    await pool.query(
+      `INSERT INTO jobs (id, episode_id, kind, key, input, status)
+       VALUES
+        ($1, $5, 'fixture', 'migration-job-1', '{}'::jsonb, 'succeeded'),
+        ($2, $5, 'fixture', 'migration-job-2', '{}'::jsonb, 'succeeded'),
+        ($3, $5, 'fixture', 'migration-job-3', '{}'::jsonb, 'succeeded'),
+        ($4, $5, 'fixture', 'migration-job-4', '{}'::jsonb, 'succeeded')`,
+      [...jobIds, episodeWithScripts],
+    );
+    await pool.query(
+      `INSERT INTO voice_takes
+        (id, script_id, job_id, provider, model, voice_id, voice_name, settings,
+         purpose, transcript, audio_path, duration, checksum, rights, alignment, created_at)
+       VALUES
+        ($1, $4, $6, 'fixture', 'fixture', 'voice-1', 'First voice', '{}'::jsonb,
+          'audition', 'First', 'first.mp3', 5, 'take-1', '{}'::jsonb, '{}'::jsonb,
+          '2026-01-03T00:00:00Z'),
+        ($2, $4, $7, 'fixture', 'fixture', 'voice-2', 'Selected voice', '{}'::jsonb,
+          'audition', 'Selected', 'selected.mp3', 5, 'take-2', '{}'::jsonb, '{}'::jsonb,
+          '2026-01-03T00:00:00Z'),
+        ($3, $5, $8, 'fixture', 'fixture', 'voice-3', 'Other script voice', '{}'::jsonb,
+          'audition', 'Other', 'other.mp3', 5, 'take-3', '{}'::jsonb, '{}'::jsonb,
+          '2026-01-04T00:00:00Z')`,
+      [
+        firstTake,
+        selectedTake,
+        otherScriptTake,
+        selectedScript,
+        secondScript,
+        jobIds[0],
+        jobIds[1],
+        jobIds[2],
+      ],
+    );
+    await pool.query(
+      `INSERT INTO caption_tracks
+        (id, voice_take_id, cues, checksum, created_at)
+       VALUES
+        ($1, $4, '[]'::jsonb, 'caption-1', '2026-01-05T00:00:00Z'),
+        ($2, $4, '[]'::jsonb, 'caption-2', '2026-01-05T00:00:00Z'),
+        ($3, $5, '[]'::jsonb, 'caption-other', '2026-01-06T00:00:00Z')`,
+      [
+        firstCaption,
+        selectedCaption,
+        unrelatedCaption,
+        selectedTake,
+        firstTake,
+      ],
+    );
+    await pool.query(
+      `INSERT INTO compositions
+        (id, episode_id, script_id, voice_take_id, caption_track_id, data,
+         checksum, created_at)
+       VALUES
+        ($1, $3, $4, $5, $6, '{}'::jsonb, 'composition-1',
+          '2026-01-07T00:00:00Z'),
+        ($2, $3, $4, $5, $6, '{}'::jsonb, 'composition-2',
+          '2026-01-07T00:00:00Z')`,
+      [
+        firstComposition,
+        selectedComposition,
+        episodeWithScripts,
+        selectedScript,
+        selectedTake,
+        selectedCaption,
+      ],
+    );
+    await pool.query(
+      `INSERT INTO video_exports
+        (id, composition_id, job_id, landscape_path, vertical_path, srt_path,
+         description_path, metadata)
+       VALUES ($1, $2, $3, 'landscape.mp4', 'vertical.mp4', 'captions.srt',
+         'description.txt', '{}'::jsonb)`,
+      [exportId, firstComposition, jobIds[3]],
+    );
+    const artifactCountsBefore = (
+      await pool.query<{
+        voice_takes: number;
+        caption_tracks: number;
+        compositions: number;
+        video_exports: number;
+      }>(`SELECT
+          (SELECT count(*)::int FROM voice_takes) AS voice_takes,
+          (SELECT count(*)::int FROM caption_tracks) AS caption_tracks,
+          (SELECT count(*)::int FROM compositions) AS compositions,
+          (SELECT count(*)::int FROM video_exports) AS video_exports`)
+    ).rows[0];
+
+    await pool.query(
+      await readFile(
+        new URL("../../drizzle/0008_messy_the_santerians.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+
     const states = await pool.query<{
       episode_id: string;
       selected_script_id: string | null;
+      selected_voice_take_id: string | null;
+      selected_caption_track_id: string | null;
+      selected_composition_id: string | null;
       revision: number;
     }>(
-      `SELECT episode_id, selected_script_id, revision
+      `SELECT episode_id, selected_script_id, selected_voice_take_id,
+         selected_caption_track_id, selected_composition_id, revision
        FROM episode_workspace_states ORDER BY episode_id`,
     );
     assert.equal(states.rowCount, 2);
@@ -200,14 +314,31 @@ test("workspace migration backfills selection and metadata without creating draf
       {
         episode_id: episodeWithScripts,
         selected_script_id: selectedScript,
+        selected_voice_take_id: selectedTake,
+        selected_caption_track_id: selectedCaption,
+        selected_composition_id: selectedComposition,
         revision: 1,
       },
     );
-    assert.equal(
-      states.rows.find((row) => row.episode_id === episodeWithoutScripts)
-        ?.selected_script_id,
-      null,
+    assert.deepEqual(
+      states.rows.find((row) => row.episode_id === episodeWithoutScripts),
+      {
+        episode_id: episodeWithoutScripts,
+        selected_script_id: null,
+        selected_voice_take_id: null,
+        selected_caption_track_id: null,
+        selected_composition_id: null,
+        revision: 1,
+      },
     );
+    const artifactCountsAfter = (
+      await pool.query<typeof artifactCountsBefore>(`SELECT
+          (SELECT count(*)::int FROM voice_takes) AS voice_takes,
+          (SELECT count(*)::int FROM caption_tracks) AS caption_tracks,
+          (SELECT count(*)::int FROM compositions) AS compositions,
+          (SELECT count(*)::int FROM video_exports) AS video_exports`)
+    ).rows[0];
+    assert.deepEqual(artifactCountsAfter, artifactCountsBefore);
 
     const drafts = await pool.query(
       "SELECT episode_id FROM episode_script_drafts",
