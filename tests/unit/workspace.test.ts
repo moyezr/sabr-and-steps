@@ -15,6 +15,10 @@ function fixture(changes: Partial<WorkspaceInput> = {}): WorkspaceInput {
       updatedAt: "2026-09-16",
       revision: 2,
     },
+    selectedScriptId: null,
+    selectedVoiceTakeId: null,
+    selectedCaptionTrackId: null,
+    selectedCompositionId: null,
     scripts: [],
     takes: [],
     tracks: [],
@@ -39,6 +43,7 @@ test("workspace opens ideas, drafts, and generated episodes at their available w
   assert.equal(draft.stages.script.tone, "ready");
   const generated = summarizeWorkspace(
     fixture({
+      selectedCompositionId: "composition",
       compositions: [
         {
           id: "composition",
@@ -62,6 +67,8 @@ test("workspace readiness follows the persisted script selection", () => {
     ],
     takes: [{ id: "take", scriptId: "selected", stale: false }],
     tracks: [{ id: "track", voiceTakeId: "take" }],
+    selectedVoiceTakeId: "take",
+    selectedCaptionTrackId: "track",
   });
   const summary = summarizeWorkspace(input);
   assert.equal(summary.stages.script.label, "Draft saved");
@@ -74,6 +81,8 @@ test("workspace readiness follows the persisted script selection", () => {
 test("text-only previews need no voice and exports reflect the latest saved preview", () => {
   const input = fixture({
     scripts: [{ id: "script", episodeRevision: 2 }],
+    selectedScriptId: "script",
+    selectedCompositionId: "latest",
     compositions: [
       { id: "latest", stale: false, data: { mode: "text", ambience: "none" } },
     ],
@@ -99,6 +108,9 @@ test("text-only previews need no voice and exports reflect the latest saved prev
 test("narration readiness follows script and caption dependencies including legacy previews", () => {
   const input = fixture({
     scripts: [{ id: "script", episodeRevision: 2 }],
+    selectedScriptId: "script",
+    selectedVoiceTakeId: "take",
+    selectedCompositionId: "legacy",
     takes: [{ id: "take", scriptId: "script", stale: false }],
     compositions: [
       { id: "legacy", stale: false, data: { ambience: "soft-noise" } },
@@ -110,6 +122,7 @@ test("narration readiness follows script and caption dependencies including lega
     "Ambience selected",
   );
   input.tracks = [{ id: "track", voiceTakeId: "take" }];
+  input.selectedCaptionTrackId = "track";
   assert.equal(summarizeWorkspace(input).stages.voice.label, "Take saved");
   input.takes = [{ id: "take", scriptId: "script", stale: true }];
   assert.equal(
@@ -203,6 +216,7 @@ test("uploaded music and image selection is reflected without exposing private d
         },
       },
     ],
+    selectedCompositionId: "preview",
   });
   const summary = summarizeWorkspace(input);
   assert.equal(summary.stages.music.label, "Music selected");
@@ -213,6 +227,41 @@ test("uploaded music and image selection is reflected without exposing private d
     "updatedAt",
   ]);
   assert.equal("compositions" in summary, false);
+});
+
+test("media readiness follows persisted selections instead of array order", () => {
+  const input = fixture({
+    selectedScriptId: "script",
+    selectedVoiceTakeId: "older-take",
+    selectedCaptionTrackId: "older-track",
+    selectedCompositionId: "older-preview",
+    scripts: [{ id: "script", episodeRevision: 2 }],
+    takes: [
+      { id: "newest-take", scriptId: "script", stale: false },
+      { id: "older-take", scriptId: "script", stale: false },
+    ],
+    tracks: [
+      { id: "newest-track", voiceTakeId: "newest-take" },
+      { id: "older-track", voiceTakeId: "older-take" },
+    ],
+    compositions: [
+      {
+        id: "newest-preview",
+        stale: false,
+        data: { mode: "text", ambience: "none", music: { id: "new" } },
+      },
+      {
+        id: "older-preview",
+        stale: false,
+        data: { mode: "text", ambience: "none" },
+      },
+    ],
+    exports: [{ compositionId: "older-preview" }],
+  });
+  const summary = summarizeWorkspace(input);
+  assert.equal(summary.stages.voice.label, "Reading cards");
+  assert.equal(summary.stages.music.label, "No music");
+  assert.equal(summary.stages.exports.label, "Current preview exported");
 });
 
 test("every section has an accessible route including empty stages", () => {

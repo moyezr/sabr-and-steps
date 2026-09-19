@@ -15,6 +15,7 @@ export const voiceSettingsSchema = z.object({
   similarity_boost: z.number().min(0).max(1).default(0.75),
 });
 export const narrationInputSchema = z.object({
+  requestId: z.string().uuid().optional(),
   scriptId: z.string().uuid(),
   provider: z.enum(["cartesia", "elevenlabs", "deepgram"]),
   voiceId: z.string().min(1).max(100),

@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -25,6 +25,7 @@ import { type Job, progress } from "../jobs/store";
 import { dataPath } from "../jobs/files";
 import { digest } from "../hash";
 import { probeMedia } from "./probe";
+import { selectFirstNarration } from "./selections";
 export async function createNarration(job: Job) {
   const input = narrationInputSchema.parse(job.input);
   const db = getDb();
@@ -160,6 +161,7 @@ export async function createNarration(job: Job) {
         .values({ voiceTakeId: take.id, cues, checksum: digest(cues) })
         .returning()
     )[0];
+  await selectFirstNarration(episode.id, script.id, take.id, track.id);
   return {
     voiceTakeId: take.id,
     captionTrackId: track.id,
@@ -167,12 +169,24 @@ export async function createNarration(job: Job) {
   };
 }
 export async function saveCaptionTiming(
+  episodeId: string,
   voiceTakeId: string,
   parentId: string,
+  selectionRevision: number,
   changes: { start: number; end: number }[],
 ) {
   const db = getDb();
   return db.transaction(async (tx) => {
+    const workspace = (
+      await tx
+        .select()
+        .from(episodeWorkspaceStates)
+        .where(eq(episodeWorkspaceStates.episodeId, episodeId))
+        .for("update")
+    )[0];
+    if (!workspace) throw new Error("WORKSPACE_NOT_FOUND");
+    if (workspace.revision !== selectionRevision)
+      throw new Error("MEDIA_SELECTION_CONFLICT");
     const take = (
       await tx
         .select()
@@ -181,23 +195,32 @@ export async function saveCaptionTiming(
         .for("update")
     )[0];
     if (!take) throw new Error("VOICE_TAKE_NOT_FOUND");
-    const latest = (
+    if (
+      workspace.selectedScriptId !== take.scriptId ||
+      workspace.selectedVoiceTakeId !== take.id
+    )
+      throw new Error("VOICE_SELECTION_CHANGED");
+    if (workspace.selectedCaptionTrackId !== parentId)
+      throw new Error("CAPTION_REVISION_CONFLICT");
+    const parent = (
       await tx
         .select()
         .from(captionTracks)
-        .where(eq(captionTracks.voiceTakeId, voiceTakeId))
-        .orderBy(desc(captionTracks.createdAt))
-        .limit(1)
+        .where(
+          and(
+            eq(captionTracks.id, parentId),
+            eq(captionTracks.voiceTakeId, voiceTakeId),
+          ),
+        )
     )[0];
-    if (!latest || latest.id !== parentId)
-      throw new Error("CAPTION_REVISION_CONFLICT");
+    if (!parent) throw new Error("CAPTION_REVISION_CONFLICT");
     const { cueSchema } = await import("../../domain/media");
-    const cues = z.array(cueSchema).parse(latest.cues);
+    const cues = z.array(cueSchema).parse(parent.cues);
     if (changes.length !== cues.length)
       throw new Error("CAPTION_COUNT_CHANGED");
     const updated = cues.map((c, i) => ({ ...c, ...changes[i] }));
     validateCues(updated, take.duration);
-    return (
+    const saved = (
       await tx
         .insert(captionTracks)
         .values({
@@ -208,5 +231,23 @@ export async function saveCaptionTiming(
         })
         .returning()
     )[0];
+    const selected = (
+      await tx
+        .update(episodeWorkspaceStates)
+        .set({
+          selectedCaptionTrackId: saved.id,
+          revision: workspace.revision + 1,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(episodeWorkspaceStates.episodeId, episodeId),
+            eq(episodeWorkspaceStates.revision, selectionRevision),
+          ),
+        )
+        .returning({ episodeId: episodeWorkspaceStates.episodeId })
+    )[0];
+    if (!selected) throw new Error("MEDIA_SELECTION_CONFLICT");
+    return saved;
   });
 }

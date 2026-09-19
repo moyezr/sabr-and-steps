@@ -41,6 +41,9 @@ export type EpisodeWorkspaceState = {
 export type WorkspaceInput = {
   episode: { id: string; title: string; updatedAt: string; revision: number };
   selectedScriptId?: string | null;
+  selectedVoiceTakeId?: string | null;
+  selectedCaptionTrackId?: string | null;
+  selectedCompositionId?: string | null;
   scripts: readonly { id: string; episodeRevision: number }[];
   takes: readonly { id: string; scriptId: string; stale: boolean }[];
   tracks: readonly { id: string; voiceTakeId: string }[];
@@ -58,16 +61,21 @@ export type WorkspaceInput = {
   jobs: readonly { kind: string; status: string }[];
 };
 
-/** Collections are newest first, matching the existing media state query. */
 export function summarizeWorkspace(
   input: WorkspaceInput,
 ): EpisodeWorkspaceState {
   const script =
     input.scripts.find((item) => item.id === input.selectedScriptId) ||
     input.scripts[0];
-  const composition = input.compositions[0];
-  const take = input.takes.find((item) => item.scriptId === script?.id);
-  const track = input.tracks.find((item) => item.voiceTakeId === take?.id);
+  const composition = input.compositions.find(
+    (item) => item.id === input.selectedCompositionId,
+  );
+  const take = input.takes.find(
+    (item) => item.id === input.selectedVoiceTakeId,
+  );
+  const track = input.tracks.find(
+    (item) => item.id === input.selectedCaptionTrackId,
+  );
   const textOnly = composition?.data.mode === "text";
   const scriptStale =
     !!script && script.episodeRevision !== input.episode.revision;

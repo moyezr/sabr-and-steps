@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import { mediaState } from "@/lib/server/media/state";
 import { saveCaptionTiming } from "@/lib/server/media/narration";
 import {
@@ -12,6 +13,11 @@ import {
 } from "@/lib/server/providers/elevenlabs";
 import { enqueueJob, retryJob } from "@/lib/server/jobs/store";
 import { mutationAllowed, readJson } from "@/lib/server/http";
+import {
+  selectCaptionTrack,
+  selectComposition,
+  selectVoiceTake,
+} from "@/lib/server/media/selections";
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -50,7 +56,16 @@ export async function POST(
   try {
     const { action, data } = z
       .object({
-        action: z.enum(["narrate", "timing", "compose", "render", "retry"]),
+        action: z.enum([
+          "narrate",
+          "timing",
+          "compose",
+          "render",
+          "retry",
+          "selectVoice",
+          "selectCaption",
+          "selectComposition",
+        ]),
         data: z.unknown(),
       })
       .parse(await readJson(request));
@@ -59,14 +74,22 @@ export async function POST(
       const input = narrationInputSchema.parse(data);
       if (!state.scripts.some((s) => s.id === input.scriptId))
         throw new Error("SCRIPT_NOT_FOUND");
-      const job = await enqueueJob("narration", input, id);
+      const job = await enqueueJob(
+        "narration",
+        { ...input, requestId: randomUUID() },
+        id,
+      );
       return Response.json({ jobId: job.id }, { status: 202 });
     }
+    if (action === "selectVoice") await selectVoiceTake(id, data);
+    if (action === "selectCaption") await selectCaptionTrack(id, data);
+    if (action === "selectComposition") await selectComposition(id, data);
     if (action === "timing") {
       const input = z
         .object({
           voiceTakeId: z.string().uuid(),
           parentId: z.string().uuid(),
+          selectionRevision: z.number().int().positive(),
           changes: z
             .array(z.object({ start: z.number(), end: z.number() }))
             .max(1000),
@@ -74,7 +97,13 @@ export async function POST(
         .parse(data);
       if (!state.takes.some((t) => t.id === input.voiceTakeId))
         throw new Error("VOICE_NOT_FOUND");
-      await saveCaptionTiming(input.voiceTakeId, input.parentId, input.changes);
+      await saveCaptionTiming(
+        id,
+        input.voiceTakeId,
+        input.parentId,
+        input.selectionRevision,
+        input.changes,
+      );
     }
     if (action === "compose") await saveComposition(id, data);
     if (action === "render") {

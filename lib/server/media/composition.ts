@@ -20,6 +20,7 @@ import { scriptBlockSchema } from "../../domain/script";
 import { checkedAsset } from "./assets";
 import { digest } from "../hash";
 export const compositionInputSchema = z.object({
+  selectionRevision: z.number().int().positive(),
   scriptId: z.string().uuid(),
   voiceTakeId: z.string().uuid().nullable().optional(),
   captionTrackId: z.string().uuid().nullable().optional(),
@@ -60,10 +61,14 @@ export async function saveComposition(episodeId: string, input: unknown) {
     )[0];
     const workspace = (
       await tx
-        .select({ selectedScriptId: episodeWorkspaceStates.selectedScriptId })
+        .select()
         .from(episodeWorkspaceStates)
         .where(eq(episodeWorkspaceStates.episodeId, episodeId))
+        .for("update")
     )[0];
+    if (!workspace) throw new Error("WORKSPACE_NOT_FOUND");
+    if (workspace.revision !== data.selectionRevision)
+      throw new Error("MEDIA_SELECTION_CONFLICT");
     const fallback = workspace?.selectedScriptId
       ? undefined
       : (
@@ -100,17 +105,12 @@ export async function saveComposition(episodeId: string, input: unknown) {
           .from(voiceTakes)
           .where(eq(voiceTakes.id, data.voiceTakeId))
       )[0];
-      if (!take || take.scriptId !== script.id)
+      if (
+        !take ||
+        take.scriptId !== script.id ||
+        workspace.selectedVoiceTakeId !== take.id
+      )
         throw new Error("VOICE_REVISION_CHANGED");
-      const latestTake = (
-        await tx
-          .select()
-          .from(voiceTakes)
-          .where(eq(voiceTakes.scriptId, script.id))
-          .orderBy(desc(voiceTakes.createdAt))
-          .limit(1)
-      )[0];
-      if (latestTake?.id !== take.id) throw new Error("VOICE_REVISION_CHANGED");
       track = (
         await tx
           .select()
@@ -119,7 +119,11 @@ export async function saveComposition(episodeId: string, input: unknown) {
           .orderBy(desc(captionTracks.createdAt))
           .limit(1)
       )[0];
-      if (!track || track.id !== data.captionTrackId)
+      if (
+        !track ||
+        track.id !== data.captionTrackId ||
+        workspace.selectedCaptionTrackId !== track.id
+      )
         throw new Error("CAPTION_REVISION_CHANGED");
       cues = z.array(cueSchema).parse(track.cues);
       validateCues(cues, take.duration);
@@ -176,7 +180,7 @@ export async function saveComposition(episodeId: string, input: unknown) {
         : "Original reflection · Quotation attributed on screen",
     });
     const checksum = digest({ episodeId, composition });
-    return (
+    const saved = (
       await tx
         .insert(compositions)
         .values({
@@ -189,6 +193,24 @@ export async function saveComposition(episodeId: string, input: unknown) {
         })
         .returning()
     )[0];
+    const selected = (
+      await tx
+        .update(episodeWorkspaceStates)
+        .set({
+          selectedCompositionId: saved.id,
+          revision: workspace.revision + 1,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(episodeWorkspaceStates.episodeId, episodeId),
+            eq(episodeWorkspaceStates.revision, data.selectionRevision),
+          ),
+        )
+        .returning({ episodeId: episodeWorkspaceStates.episodeId })
+    )[0];
+    if (!selected) throw new Error("MEDIA_SELECTION_CONFLICT");
+    return saved;
   });
 }
 export async function validateCurrentComposition(id: string) {
@@ -202,7 +224,7 @@ export async function validateCurrentComposition(id: string) {
   )[0];
   const workspace = (
     await db
-      .select({ selectedScriptId: episodeWorkspaceStates.selectedScriptId })
+      .select()
       .from(episodeWorkspaceStates)
       .where(eq(episodeWorkspaceStates.episodeId, c.episodeId))
   )[0];
@@ -228,6 +250,7 @@ export async function validateCurrentComposition(id: string) {
   const data = compositionSchema.parse(c.data);
   if (
     !episode ||
+    workspace?.selectedCompositionId !== c.id ||
     selectedScriptId !== c.scriptId ||
     selectedScript?.episodeRevision !== episode.revision
   )
@@ -238,26 +261,10 @@ export async function validateCurrentComposition(id: string) {
     return c;
   }
   if (!c.voiceTakeId || !c.captionTrackId) throw new Error("COMPOSITION_STALE");
-  const latestTake = (
-    await db
-      .select()
-      .from(voiceTakes)
-      .where(eq(voiceTakes.scriptId, c.scriptId))
-      .orderBy(desc(voiceTakes.createdAt))
-      .limit(1)
-  )[0];
-  const track = (
-    await db
-      .select()
-      .from(captionTracks)
-      .where(eq(captionTracks.voiceTakeId, c.voiceTakeId))
-      .orderBy(desc(captionTracks.createdAt))
-      .limit(1)
-  )[0];
   if (
     selectedScriptId !== c.scriptId ||
-    latestTake?.id !== c.voiceTakeId ||
-    track?.id !== c.captionTrackId
+    workspace?.selectedVoiceTakeId !== c.voiceTakeId ||
+    workspace?.selectedCaptionTrackId !== c.captionTrackId
   )
     throw new Error("COMPOSITION_STALE");
   return c;

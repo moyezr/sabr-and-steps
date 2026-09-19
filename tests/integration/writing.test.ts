@@ -5,6 +5,7 @@ import nextEnv from "@next/env";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { eq } from "drizzle-orm";
 nextEnv.loadEnvConfig(process.cwd());
 test("durable jobs claim once, recover safely, and script edits preserve canonical text and invalidate review", async () => {
   assert(process.env.DATABASE_URL);
@@ -25,6 +26,24 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
     );
     const job = await enqueueJob("fixture", { test: 1 });
     assert.equal((await enqueueJob("fixture", { test: 1 })).id, job.id);
+    const narrationRequest = {
+      scriptId: randomUUID(),
+      provider: "elevenlabs",
+      voiceId: "fixture",
+      settings: { speed: 1, stability: 0.65, similarity_boost: 0.75 },
+      purpose: "audition",
+      reviewMode: "consolidated",
+      providerOverride: false,
+    };
+    const firstAlternative = await enqueueJob("narration", {
+      ...narrationRequest,
+      requestId: randomUUID(),
+    });
+    const secondAlternative = await enqueueJob("narration", {
+      ...narrationRequest,
+      requestId: randomUUID(),
+    });
+    assert.notEqual(firstAlternative.id, secondAlternative.id);
     const claims = await Promise.all([claimJob(job.id), claimJob(job.id)]);
     assert.equal(claims.filter(Boolean).length, 1);
     await pool.query(
@@ -44,9 +63,20 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
       ...EMPTY_EPISODE,
       title: "Writing fixture",
     });
-    const { sourceImports, sourcePassages, embeddingIndexes, scriptRevisions } =
-      await import("../../lib/server/db/schema");
+    const {
+      sourceImports,
+      sourcePassages,
+      embeddingIndexes,
+      episodeWorkspaceStates,
+      scriptRevisions,
+    } = await import("../../lib/server/db/schema");
     const db = getDb();
+    const selectionRevision = async () =>
+      (
+        await db
+          .select({ revision: episodeWorkspaceStates.revision })
+          .from(episodeWorkspaceStates)
+      )[0].revision;
     const edition = (
       await db
         .insert(sourceImports)
@@ -151,6 +181,7 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
     } = await import("../../lib/server/media/composition");
     const { compositionSchema } = await import("../../lib/domain/media");
     const silent = await saveTextComposition(episode.id, {
+      selectionRevision: await selectionRevision(),
       scriptId: saved.id,
       mode: "text",
       background: "sand",
@@ -167,6 +198,7 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
     );
     await validateTextComposition(silent.id);
     const slower = await saveTextComposition(episode.id, {
+      selectionRevision: await selectionRevision(),
       scriptId: saved.id,
       mode: "text",
       background: "sand",
@@ -208,6 +240,7 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
       /ASSET_KIND_MISMATCH/,
     );
     const withMusic = await saveTextComposition(episode.id, {
+      selectionRevision: await selectionRevision(),
       scriptId: saved.id,
       mode: "text",
       background: "dusk",
@@ -269,10 +302,29 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
     const { saveCaptionTiming } = await import(
       "../../lib/server/media/narration"
     );
+    const {
+      selectCaptionTrack,
+      selectComposition,
+      selectFirstNarration,
+      selectVoiceTake,
+    } = await import("../../lib/server/media/selections");
     const { saveComposition, validateCurrentComposition } = await import(
       "../../lib/server/media/composition"
     );
+    // A newly generated alternative does not replace an existing composition.
+    await validateTextComposition(withMusic.id);
+    await selectFirstNarration(episode.id, saved.id, take.id, track.id);
+    let selectedMedia = (
+      await db
+        .select()
+        .from(episodeWorkspaceStates)
+        .where(eq(episodeWorkspaceStates.episodeId, episode.id))
+    )[0];
+    assert.equal(selectedMedia.selectedVoiceTakeId, take.id);
+    assert.equal(selectedMedia.selectedCaptionTrackId, track.id);
+    await validateTextComposition(withMusic.id);
     const composition = await saveComposition(episode.id, {
+      selectionRevision: await selectionRevision(),
       scriptId: saved.id,
       voiceTakeId: take.id,
       captionTrackId: track.id,
@@ -281,12 +333,22 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
     });
     await validateCurrentComposition(composition.id);
     await assert.rejects(
-      saveCaptionTiming(take.id, track.id, [{ start: 3, end: 8 }]),
+      saveCaptionTiming(
+        episode.id,
+        take.id,
+        track.id,
+        await selectionRevision(),
+        [{ start: 3, end: 8 }],
+      ),
       /CAPTION_TIMING_INVALID/,
     );
-    const revised = await saveCaptionTiming(take.id, track.id, [
-      { start: 0.1, end: 2.1 },
-    ]);
+    const revised = await saveCaptionTiming(
+      episode.id,
+      take.id,
+      track.id,
+      await selectionRevision(),
+      [{ start: 0.1, end: 2.1 }],
+    );
     assert.equal(
       (revised.cues as { text: string }[])[0].text,
       "Edited reflection.",
@@ -296,10 +358,17 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
       /COMPOSITION_STALE/,
     );
     await assert.rejects(
-      saveCaptionTiming(take.id, track.id, [{ start: 0, end: 2 }]),
+      saveCaptionTiming(
+        episode.id,
+        take.id,
+        track.id,
+        await selectionRevision(),
+        [{ start: 0, end: 2 }],
+      ),
       /CAPTION_REVISION_CONFLICT/,
     );
     let fresh = await saveComposition(episode.id, {
+      selectionRevision: await selectionRevision(),
       scriptId: saved.id,
       voiceTakeId: take.id,
       captionTrackId: revised.id,
@@ -333,28 +402,82 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
         })
         .returning()
     )[0];
-    await assert.rejects(
-      validateCurrentComposition(fresh.id),
-      /COMPOSITION_STALE/,
+    await selectFirstNarration(
+      episode.id,
+      saved.id,
+      newerTake.id,
+      newerTrack.id,
     );
+    selectedMedia = (
+      await db
+        .select()
+        .from(episodeWorkspaceStates)
+        .where(eq(episodeWorkspaceStates.episodeId, episode.id))
+    )[0];
+    assert.equal(selectedMedia.selectedVoiceTakeId, take.id);
+    assert.equal(selectedMedia.selectedCaptionTrackId, revised.id);
+    await validateCurrentComposition(fresh.id);
     await assert.rejects(
       saveComposition(episode.id, {
+        selectionRevision: await selectionRevision(),
         scriptId: saved.id,
-        voiceTakeId: take.id,
-        captionTrackId: revised.id,
+        voiceTakeId: newerTake.id,
+        captionTrackId: newerTrack.id,
         background: "forest",
         narrationVolume: 1,
       }),
       /VOICE_REVISION_CHANGED/,
     );
+    await selectVoiceTake(episode.id, {
+      voiceTakeId: newerTake.id,
+      selectionRevision: await selectionRevision(),
+    });
+    await selectCaptionTrack(episode.id, {
+      captionTrackId: newerTrack.id,
+      selectionRevision: await selectionRevision(),
+    });
+    await assert.rejects(
+      validateCurrentComposition(fresh.id),
+      /COMPOSITION_STALE/,
+    );
     fresh = await saveComposition(episode.id, {
+      selectionRevision: await selectionRevision(),
       scriptId: saved.id,
       voiceTakeId: newerTake.id,
       captionTrackId: newerTrack.id,
       background: "forest",
       narrationVolume: 1,
     });
-    await validateTextComposition(silent.id);
+    const mediaSelectionRevision = await selectionRevision();
+    const competingPreviewSelections = await Promise.allSettled([
+      selectComposition(episode.id, {
+        compositionId: composition.id,
+        selectionRevision: mediaSelectionRevision,
+      }),
+      selectComposition(episode.id, {
+        compositionId: withMusic.id,
+        selectionRevision: mediaSelectionRevision,
+      }),
+    ]);
+    assert.equal(
+      competingPreviewSelections.filter((result) => result.status === "fulfilled")
+        .length,
+      1,
+    );
+    assert.equal(
+      competingPreviewSelections.filter((result) => result.status === "rejected")
+        .length,
+      1,
+    );
+    await selectComposition(episode.id, {
+      compositionId: fresh.id,
+      selectionRevision: await selectionRevision(),
+    });
+    await validateCurrentComposition(fresh.id);
+    await assert.rejects(
+      validateTextComposition(silent.id),
+      /COMPOSITION_STALE/,
+    );
     const finalScript = await saveDraft(episode.id, {
       parentId: saved.id,
       title: "Edited again",

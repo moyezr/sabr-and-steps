@@ -35,6 +35,12 @@ async function main() {
     const { EMPTY_EPISODE } = await import("../lib/domain/episode");
     const { enqueueJob } = await import("../lib/server/jobs/store");
     const { saveComposition } = await import("../lib/server/media/composition");
+    const { selectFirstNarration } = await import(
+      "../lib/server/media/selections"
+    );
+    const { scriptVersionState, selectFirstScript } = await import(
+      "../lib/server/writing/versions"
+    );
     const { runOne } = await import("../lib/server/jobs/run");
     const episode = (
       await db
@@ -113,6 +119,7 @@ async function main() {
         })
         .returning()
     )[0];
+    await selectFirstScript(episode.id, script.id);
     const job = await enqueueJob(
       "fixture",
       { scriptId: script.id },
@@ -165,7 +172,10 @@ async function main() {
         })
         .returning()
     )[0];
+    await selectFirstNarration(episode.id, script.id, take.id, track.id);
     const composition = await saveComposition(episode.id, {
+      selectionRevision: (await scriptVersionState(episode.id))
+        .selectionRevision,
       scriptId: script.id,
       voiceTakeId: take.id,
       captionTrackId: track.id,
@@ -240,6 +250,8 @@ async function main() {
       const variants = [];
       for (const mode of ["text", "narrated", "silent"] as const) {
         const variant = await saveComposition(episode.id, {
+          selectionRevision: (await scriptVersionState(episode.id))
+            .selectionRevision,
           scriptId: script.id,
           voiceTakeId: mode === "narrated" ? take.id : null,
           captionTrackId: mode === "narrated" ? track.id : null,
