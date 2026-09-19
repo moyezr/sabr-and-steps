@@ -8,11 +8,12 @@ This file is the entry map. Read topic documents when relevant to the task.
 1. Read [PROGRESS.md](PROGRESS.md), [feature_list.json](feature_list.json), and relevant [decisions](DECISIONS.md).
 2. Inspect the working directory, `git status --short`, and recent history if present. Preserve existing user changes.
 3. Select one bounded feature or the user's requested maintenance task. Keep at most one feature `in_progress`; a backlog is not permission to implement everything.
-4. Use `./init.sh` for first setup. On a prepared checkout, use `pnpm check` to establish the baseline before code changes.
+4. On first setup run `make setup && make test`. On a prepared checkout, use `pnpm check` before code changes.
 
 ## Commands
 
-- Development: `pnpm dev --hostname 127.0.0.1`.
+- First run: `make setup && make test`.
+- Development: `make dev`.
 - Baseline verification: `pnpm check`.
 - Production compilation: `pnpm build`.
 - Database: `pnpm db:configure`, `pnpm db:up`, `pnpm db:migrate`; integration checks: `pnpm test:db`.
@@ -39,6 +40,7 @@ This file is the entry map. Read topic documents when relevant to the task.
 
 | Task | Read |
 | --- | --- |
+| Accepted editor roadmap and milestone boundaries | [PLAN.md](PLAN.md) |
 | Scope, UX, episode format | [docs/product.md](docs/product.md) |
 | Data, provider adapters, worker, rendering | [docs/architecture.md](docs/architecture.md) |
 | Sources, retrieval, scripts, titles | [docs/content.md](docs/content.md) |
