@@ -185,7 +185,7 @@
       "area": "writing",
       "title": "Persist script selection, working drafts, and history",
       "user_visible_behavior": "The creator can keep editing across reloads, choose the script version used by the episode, save named versions, and restore an older version without a newly generated draft silently replacing current work.",
-      "status": "in_progress",
+      "status": "passing",
       "verification": [
         "Migrate existing episodes without deleting artifacts and backfill each selected script to the same latest revision used before the migration.",
         "Autosave a changed title and reflection, reload the app, and recover the exact working draft; preserve local text and show recovery when concurrent saves conflict.",
@@ -194,8 +194,10 @@
         "Complete a deterministic generated alternative while another script and working draft are selected; verify the result appears in history without replacing either one.",
         "Run pnpm check, pnpm test:db, pnpm build, and the documented desktop/mobile browser journey without model or speech calls."
       ],
-      "evidence": [],
-      "notes": "Bounded PLAN.md milestone 2A. Script selection and working drafts come first because downstream media currently assumes scripts[0]. Explicit voice-take, caption-track, and composition selection; undo/redo; side-by-side comparison; and AI partial rewrites remain separate follow-on slices."
+      "evidence": [
+        "2026-09-19: Migration 0007, explicit selected-script state, revision-checked autosave, named immutable checkpoints, restore-as-new, fresh non-selecting alternatives, canonical quote protection, and downstream selection tracking passed automated and browser acceptance. pnpm check passed 28 unit tests plus lint/types/harness, all 4 pnpm test:db suites passed, and pnpm build passed. The production browser recovered an exact draft after reload, blocked history while it existed, selected Version 1 then restored Version 2 with correct stale/current states, and fit a 390 x 844 viewport without horizontal overflow. No provider was called and temporary QA state was removed. See docs/evidence/2026-09-19-script-versioning.md."
+      ],
+      "notes": "Completed PLAN.md milestone 2A. Script selection and working drafts come first because downstream media previously assumed scripts[0]. Explicit voice-take, caption-track, and composition selection; undo/redo; side-by-side comparison; and AI partial rewrites remain separate follow-on slices."
     }
   ]
 }

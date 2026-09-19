@@ -61,6 +61,14 @@ Update `PROGRESS.md` at session end with verified state, scope, results, unverif
 
 Do not repeat broad checks after relevant checks pass without another edit or unresolved concern. Stop temporary processes you started and record any intentionally running service. Preserve user changes.
 
+## Script versioning acceptance (F009)
+
+Run `pnpm check`, `pnpm test:db`, and `pnpm build`. The database suites must cover migration backfill, concurrent working-draft conflicts, named checkpoints, explicit selection and downstream validity, restore-as-new metadata, alternatives that preserve selection, canonical quotation protection, and explicit draft discard.
+
+In the browser, edit a reflection and title, wait for the saved indicator, reload, and verify exact recovery. Confirm a working draft prevents selection/restore until it is named or explicitly discarded. Select an older version, reload, and confirm its words and downstream stale states persist; return to the original version. At a narrow viewport, verify the editor and history have no horizontal overflow. Use deterministic fixtures for generation, restore, and conflict cases when changing the real pilot would add permanent history or incur provider use.
+
+Latest evidence: [script versioning acceptance](evidence/2026-09-19-script-versioning.md).
+
 ## Source browser acceptance
 
 Run `pnpm check`, `pnpm test:db`, and `pnpm build`. Source unit fixtures cover formatting, invalid references/editions, auth renewal, and sanitized failures. Disposable database checks cover failed-chapter recovery, atomic checkpoints, concurrent import exclusion, refreshed-content deduplication, preserved prior versions, search/context, and migration constraints. Fixtures are synthetic and are not live-provider evidence.

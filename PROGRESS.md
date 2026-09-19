@@ -1,25 +1,34 @@
 # Progress
 
-Last updated: 2026-09-18.
+Last updated: 2026-09-19.
 
 ## Current state
 
 - Repository: `/Users/moyezrabbani/Development/Projects/sabr-and-steps`.
-- H001 and F001–F003 and F008 are complete. A real narrated private pilot has been generated in both formats. F009 is active for the first milestone-2 slice: persisted script selection, working-draft autosave, and named script history. F005 remains blocked on creator listening and aesthetic feedback; F004 is paused for listening feedback; F006 publication/review acceptance remains pending.
+- H001, F001–F003, F008, and F009 are complete. A real narrated private pilot has been generated in both formats. Milestone 2 now has persisted script selection, working-draft autosave, and named script history; explicit voice, caption, and composition selection is the next bounded slice. F005 remains blocked on creator listening and aesthetic feedback; F004 is paused for listening feedback; F006 publication/review acceptance remains pending.
 - Branded Next.js 16.2.6 / React 19.2.6 / HeroUI 3.2.5 studio: persisted episode ideas, responsive editor, Providers configuration, and Sources browser with search, references, context, Arabic, and provenance.
 - Drizzle 0.45.2, PostgreSQL 17, pgvector 0.8.2 are installed and migrated. The project uses its own Docker volume and loopback port 55432.
 - Script options are exactly `openai/gpt-5.6-luna` and `google/gemini-3.8-flash` through OpenRouter. Episode preferences, retrieval/draft generation, a usage ledger and ElevenLabs quota/rights guards are implemented. Live ElevenLabs narration and both private pilot exports are verified.
 - Startup: `./init.sh`, `pnpm db:configure`, `pnpm db:up`, `pnpm db:migrate`, then `pnpm dev --hostname 127.0.0.1`.
-- Checks: `pnpm check`, `pnpm test:db` (3 suites), `pnpm build`. See the active session for the latest results and remaining verification.
+- Checks: `pnpm check`, `pnpm test:db` (4 suites), `pnpm build`. See the active session for the latest results and remaining verification.
 
-## Latest session — 2026-09-18: connected episode editor, milestone 1
+## Latest session — 2026-09-19: script working drafts and version history
+
+- F009 is passing. Migration 0007 preserves existing scripts and artifacts, backfills the selected script to the deterministic latest revision previously used by the app, labels existing history, and creates no phantom drafts.
+- Script edits now autosave into a separate revision-checked working draft. The creator can name an immutable checkpoint, explicitly discard a draft, select any checkpoint, or restore history as a new revision. History records origin, model, parent, and generation instructions. Canonical quotation text remains server-protected.
+- Generation has a fresh request identity and adds alternatives without replacing an existing selected script or working draft. Writing, narration readiness, composition staleness, and workspace states all follow the persisted selection instead of newest-row order.
+- Verification passed: `pnpm check` with 28 unit tests plus lint/types/harness, all 4 `pnpm test:db` suites, `pnpm build`, and `git diff --check`. Browser acceptance on the production build covered exact autosave recovery after reload, draft/history interlocks, selecting an older version and restoring the original selection, downstream stale/current states, and a 390 × 844 layout with no horizontal overflow. See [script versioning evidence](docs/evidence/2026-09-19-script-versioning.md).
+- No model or speech request was made. The temporary QA draft was removed, the pilot returned to Version 2, and no test checkpoint was added. The creator's pre-existing unsaved Music form in the original tab was not changed. The rebuilt app remains available on `http://127.0.0.1:3107`.
+- Next bounded action: persist explicit voice-take, caption-track, and composition selections so media history no longer relies on newest-artifact lookup. Undo/redo, comparison, and partial AI rewrite remain later slices.
+
+## Prior session — 2026-09-18: connected episode editor, milestone 1
 
 - F008 is passing. The shared episode shell keeps the title, save state, export access, and seven real section links available throughout the workflow. Entry routing opens Video for an episode with a composition, Script for a script-only episode, and Idea otherwise. A read-only workspace summary reports saved, stale, active, failed, and uncertain states without provider calls or mutations.
 - Existing capabilities remain connected: direct idea and script editing, source context, narration and reading-card controls, media uploads and mixing, both preview orientations, caption timing, preview revisions, render actions, and current and earlier downloads. Empty sections stay reachable and explain their prerequisites.
 - Episode-local buffers retain unsaved Idea, Script, source-edition, voice setup, upload, timing, and media settings while moving between sections or using Back/Forward. A custom leave dialog protects navigation outside the episode; `beforeunload` protects reload/close. These buffers are memory-backed, not milestone-2 autosave.
 - Verification passed: `pnpm check` with 27 unit tests, lint, types, and harness checks; all three `pnpm test:db` suites; `pnpm build`; and `git diff --check`. Browser acceptance covered the real pilot, disposable idea-only and script-only fixtures, save/reload, every section and direct route, keyboard activation, phone layout, vertical preview, local draft recovery, leave-dialog cancel/discard, 404 routes, and MP4/SRT/description retrieval. See [connected editor evidence](docs/evidence/2026-09-18-connected-editor.md).
 - No model or speech request was made. The disposable editor server/database were stopped after verification. The rebuilt production app remains available on `http://127.0.0.1:3107`.
-- In progress: F009 adds a persisted selected script, revision-checked working-draft autosave, and named immutable script history. Selection must drive downstream narration/composition validity, and completed generation must not silently replace an existing selection. Voice, caption, and composition selectors follow separately.
+- The next step was F009: persisted selected scripts, revision-checked working drafts, and immutable script history. It is now complete in the latest session above.
 
 ## Prior session — 2026-09-16: establish Git history
 

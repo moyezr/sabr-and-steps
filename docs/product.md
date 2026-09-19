@@ -27,7 +27,7 @@ The accepted direction is a connected episode editor with Idea, Script & sources
 
 Milestone 1 is delivered as F008: the existing editing routes now reopen the most developed available work, show accurate saved, stale, generating, failed, and uncertain states, and guard unsaved edits on navigation. Existing uploads, caption timing, preview revisions, and download history are reused. New episodes show useful empty states in every section.
 
-The full editor in [PLAN.md](../PLAN.md) also calls for explicit version selection, autosave/undo/history, AI alternatives and partial rewrites, a scene timeline, richer sound/visual controls, and format-specific exports. Those later milestones are planned, not current capabilities. Existing latest-artifact selection persists until milestone 2.
+F009 delivers the script-first part of milestone 2: revision-checked autosaved working drafts, named immutable checkpoints, explicit persisted script selection, history restore-as-new, and fresh alternatives that do not replace selected work. Downstream readiness follows the selected script. Undo/redo, side-by-side comparison, explicit voice/caption/composition selectors, AI partial rewrites, a scene timeline, richer sound/visual controls, and format-specific exports remain planned.
 
 ## Visual and editorial direction
 

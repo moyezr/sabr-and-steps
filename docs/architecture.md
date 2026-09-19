@@ -33,11 +33,12 @@ Browser code must not import server modules. Mark Next.js server-only entry poin
 
 ## Data design
 
-Implemented entities: Episode, SourceImport, SourcePassage, EmbeddingIndex, PassageEmbedding, QueryEmbedding, ScriptRevision, Job, ProviderUsage, VoiceTake, CaptionTrack, Composition, and VideoExport. Review state currently exists on script/media records; full final-review workflow remains pending. See [source import details](sources.md).
+Implemented entities: Episode, EpisodeWorkspaceState, EpisodeScriptDraft, SourceImport, SourcePassage, EmbeddingIndex, PassageEmbedding, QueryEmbedding, ScriptRevision, Job, ProviderUsage, VoiceTake, CaptionTrack, Composition, and VideoExport. Review state currently exists on script/media records; full final-review workflow remains pending. See [source import details](sources.md).
 
 - Editions carry publisher/translator, resource ID, URL, import date, rights notes, and version/checksum. Passages retain canonical references and text.
 - Embeddings reference a source version and model, dimensions, and preprocessing revision. A model/configuration change creates a new index generation; never mix incompatible vector spaces.
 - Citations reference passage IDs and selected excerpt ranges. Script revisions preserve source versions.
+- The episode workspace persists an explicit selected script. Mutable autosave content lives in one revision-checked working-draft row per episode; named checkpoints and restored versions are immutable script revisions. Downstream readiness and composition validity use the selected script rather than whichever row was created last.
 - Assets carry relative storage paths, checksums, media metadata, origin, and license/provenance. Large files live on disk.
 - Reviews/renders reference immutable composition revisions so edits cannot silently alter an approved export.
 

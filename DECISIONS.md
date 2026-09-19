@@ -118,3 +118,13 @@ Milestone 1 connects the existing routes with a shared episode header and real n
 The current newest-artifact lookup remains an explicit limitation for this first milestone. Milestone 2 adds persisted version selection, working drafts, undo/history, autosave, and narrower dependency invalidation. Idea assistance and targeted script rewriting follow in milestone 3; timeline/media controls in milestone 4; format-specific export and consolidated review in milestone 5. Do not expose these planned capabilities as functioning controls before their persistence and acceptance checks exist.
 
 No schema migration or new model calls were required to connect navigation. Durable generation, immutable composition data shared by preview/render, canonical quotations, speech credit/rights checks, and private export restrictions remain in force. F008 is passing; F005 retains its existing evidence and waits for creator feedback.
+
+## D019 — Selected scripts and recoverable working drafts
+
+**Implemented in F009, 2026-09-19.** An episode persists one explicit selected script independently of creation order. Existing episodes are backfilled to the same deterministic newest revision they used before migration, so introducing selection does not change rendered content. Writing, narration readiness, media state, and composition validity resolve through this selection.
+
+Mutable script edits live in a separate episode working-draft row with optimistic revisions. Autosave never mutates an immutable script revision. A named save creates a checkpoint, selects it, and removes its working draft atomically. Selection and restore refuse to discard a working draft implicitly; discard is its own revision-checked action. Concurrent saves return a conflict while the browser retains the local edit for recovery.
+
+Generated alternatives append immutable history and select themselves only when an episode has no selection. Generation instructions and a fresh request identifier are recorded with the result. Restoring history creates a new revision parented to the restored source, preserving the source model and generation instructions. Canonical quotation blocks continue to resolve from stored passage IDs and cannot be edited through the working-draft boundary.
+
+This decision covers script state only. Explicit selected voice takes, caption tracks, and compositions follow as separate milestone-2 work; undo/redo and side-by-side comparison also remain open.
