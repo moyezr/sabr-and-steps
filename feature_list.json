@@ -198,6 +198,24 @@
         "2026-09-19: Migration 0007, explicit selected-script state, revision-checked autosave, named immutable checkpoints, restore-as-new, fresh non-selecting alternatives, canonical quote protection, and downstream selection tracking passed automated and browser acceptance. pnpm check passed 28 unit tests plus lint/types/harness, all 4 pnpm test:db suites passed, and pnpm build passed. The production browser recovered an exact draft after reload, blocked history while it existed, selected Version 1 then restored Version 2 with correct stale/current states, and fit a 390 x 844 viewport without horizontal overflow. No provider was called and temporary QA state was removed. See docs/evidence/2026-09-19-script-versioning.md."
       ],
       "notes": "Completed PLAN.md milestone 2A. Script selection and working drafts come first because downstream media previously assumed scripts[0]. Explicit voice-take, caption-track, and composition selection; undo/redo; side-by-side comparison; and AI partial rewrites remain separate follow-on slices."
+    },
+    {
+      "id": "F010",
+      "priority": 10,
+      "area": "media",
+      "title": "Persist selected media artifacts",
+      "user_visible_behavior": "The creator can choose the voice take, caption timing revision, and saved composition used by an episode; generating or saving another artifact does not silently replace an existing choice.",
+      "status": "in_progress",
+      "verification": [
+        "Migrate existing episodes without deleting artifacts and backfill the same newest compatible voice take, caption track, and composition previously used by the studio.",
+        "Select an older voice take, caption track, and composition, reload, and verify each selection persists with same-episode and dependency validation.",
+        "Generate another voice take while one is selected and verify it is added to history without replacing the selection; select the first take only when no voice selection exists.",
+        "Save caption timing and a preview revision and verify those explicit save actions select their new immutable artifacts while older history stays available.",
+        "Verify workspace readiness, preview, render validation, and export currentness follow persisted selections; incompatible selections become stale instead of silently switching, and text-only compositions retain nullable voice/caption dependencies.",
+        "Reject concurrent selection changes with a recoverable conflict, then run pnpm check, pnpm test:db, pnpm build, and desktop/mobile browser acceptance without provider calls."
+      ],
+      "evidence": [],
+      "notes": "PLAN.md milestone 2B. This settles media selection semantics before undo/redo and side-by-side comparison. Existing creator media and exports must remain intact."
     }
   ]
 }

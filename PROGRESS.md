@@ -5,7 +5,7 @@ Last updated: 2026-09-19.
 ## Current state
 
 - Repository: `/Users/moyezrabbani/Development/Projects/sabr-and-steps`.
-- H001, F001–F003, F008, and F009 are complete. A real narrated private pilot has been generated in both formats. Milestone 2 now has persisted script selection, working-draft autosave, and named script history; explicit voice, caption, and composition selection is the next bounded slice. F005 remains blocked on creator listening and aesthetic feedback; F004 is paused for listening feedback; F006 publication/review acceptance remains pending.
+- H001, F001–F003, F008, and F009 are complete. F010 is active for explicit voice, caption, and composition selection. F005 remains blocked on creator feedback; F004 is paused; F006 review acceptance remains pending.
 - Branded Next.js 16.2.6 / React 19.2.6 / HeroUI 3.2.5 studio: persisted episode ideas, responsive editor, Providers configuration, and Sources browser with search, references, context, Arabic, and provenance.
 - Drizzle 0.45.2, PostgreSQL 17, pgvector 0.8.2 are installed and migrated. The project uses its own Docker volume and loopback port 55432.
 - Script options are exactly `openai/gpt-5.6-luna` and `google/gemini-3.8-flash` through OpenRouter. Episode preferences, retrieval/draft generation, a usage ledger and ElevenLabs quota/rights guards are implemented. Live ElevenLabs narration and both private pilot exports are verified.
