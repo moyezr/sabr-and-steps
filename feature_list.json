@@ -123,7 +123,7 @@
         "2026-09-16: Creator upload/configuration workflow verified with 20 unit tests, 3 database suites, build, deterministic GIF frames, all audio-mode worker exports and browser upload/save/reload. See docs/evidence/2026-09-16-configurable-studio.md.",
         "2026-09-16: Full 148.16-second text-only image/music example exported in both formats. Actual frames, full decoding, music loop/fade/peak analysis and downloaded checksum passed; no speech dispatch."
       ],
-      "notes": "Creator-requested upload/configuration workflow implemented, including still images/GIFs, music looping/fades, optional narration, reading speed and immutable preview revisions. Video backgrounds deferred. Technical acceptance recorded in 2026-09-16 evidence; creator music/listening feedback remains pending. Paused while the creator-requested F008 navigation milestone is implemented; remaining creator aesthetic/music/listening feedback is required. Resume after connected navigation is verified and creator feedback is available; preserve existing technical acceptance and all remaining criteria."
+      "notes": "Creator-requested upload/configuration workflow implemented, including still images/GIFs, music looping/fades, optional narration, reading speed and immutable preview revisions. Video backgrounds are deferred. Technical acceptance is recorded in the 2026-09-16 evidence; creator music, aesthetic, and full listening feedback remain pending."
     },
     {
       "id": "F006",
@@ -177,7 +177,7 @@
       "evidence": [
         "2026-09-18: Shared seven-section workspace, stage summary, existing-project routing, local draft protection, empty states, retained previews/exports, keyboard/mobile behavior, and malformed/missing routes passed automated and browser acceptance. pnpm check passed 27 unit tests plus lint/types/harness, all 3 pnpm test:db suites passed, and pnpm build passed. See docs/evidence/2026-09-18-connected-editor.md."
       ],
-      "notes": "PLAN.md milestone 1 delivered without a schema migration or provider call. The mounted episode layout retains dirty edits across section switches and Back/Forward and warns before leaving or reloading. Drafts are not yet persisted across reload/restart. Explicit selected versions, autosave, undo/named history, targeted rewrites, scene timeline, richer media controls, and new format selection remain later milestones. Existing newest-artifact selection remains until milestone 2. F005 keeps its original criteria and evidence and remains blocked on creator feedback."
+      "notes": "PLAN.md milestone 1 delivered without a schema migration or provider call. The mounted episode layout retains dirty edits across section switches and Back/Forward and warns before leaving or reloading. F009 and F010 subsequently added persisted working drafts and explicit artifact selection. Targeted rewrites, scene timeline, richer media controls, and new format selection remain later milestones. F005 keeps its original criteria and waits for creator feedback."
     },
     {
       "id": "F009",
@@ -197,7 +197,7 @@
       "evidence": [
         "2026-09-19: Migration 0007, explicit selected-script state, revision-checked autosave, named immutable checkpoints, restore-as-new, fresh non-selecting alternatives, canonical quote protection, and downstream selection tracking passed automated and browser acceptance. pnpm check passed 28 unit tests plus lint/types/harness, all 4 pnpm test:db suites passed, and pnpm build passed. The production browser recovered an exact draft after reload, blocked history while it existed, selected Version 1 then restored Version 2 with correct stale/current states, and fit a 390 x 844 viewport without horizontal overflow. No provider was called and temporary QA state was removed. See docs/evidence/2026-09-19-script-versioning.md."
       ],
-      "notes": "Completed PLAN.md milestone 2A. Script selection and working drafts come first because downstream media previously assumed scripts[0]. Explicit voice-take, caption-track, and composition selection; undo/redo; side-by-side comparison; and AI partial rewrites remain separate follow-on slices."
+      "notes": "Completed PLAN.md milestone 2A. Script selection, working drafts, immutable checkpoints, and restore-as-new are implemented. F010 completed voice, caption, and composition selection; undo/redo and side-by-side comparison are the remaining milestone-2 slices."
     },
     {
       "id": "F010",
@@ -205,7 +205,7 @@
       "area": "media",
       "title": "Persist selected media artifacts",
       "user_visible_behavior": "The creator can choose the voice take, caption timing revision, and saved composition used by an episode; generating or saving another artifact does not silently replace an existing choice.",
-      "status": "in_progress",
+      "status": "passing",
       "verification": [
         "Migrate existing episodes without deleting artifacts and backfill the same newest compatible voice take, caption track, and composition previously used by the studio.",
         "Select an older voice take, caption track, and composition, reload, and verify each selection persists with same-episode and dependency validation.",
@@ -214,8 +214,10 @@
         "Verify workspace readiness, preview, render validation, and export currentness follow persisted selections; incompatible selections become stale instead of silently switching, and text-only compositions retain nullable voice/caption dependencies.",
         "Reject concurrent selection changes with a recoverable conflict, then run pnpm check, pnpm test:db, pnpm build, and desktop/mobile browser acceptance without provider calls."
       ],
-      "evidence": [],
-      "notes": "PLAN.md milestone 2B. This settles media selection semantics before undo/redo and side-by-side comparison. Existing creator media and exports must remain intact."
+      "evidence": [
+        "2026-09-20: Migration 0008, deterministic selection backfill, revision-checked media selectors, first-take-only auto-selection, non-selecting alternatives, immutable caption/preview saves, selected-dependency preview/render/export behavior, and text-only nullable dependencies passed automated and browser acceptance. pnpm check passed 29 unit tests plus lint/types/harness, all 4 pnpm test:db suites passed, and pnpm build passed. The pilot persisted an older narrated preview across reload, then returned to its original text-only preview; 390 x 844 had no horizontal overflow. Multiple take/caption selection used disposable fixtures and no provider was called. See docs/evidence/2026-09-20-media-selection.md."
+      ],
+      "notes": "Completed PLAN.md milestone 2B. Voice, caption, and composition history now follows explicit persisted selections. Undo/redo and side-by-side script comparison are next; existing creator media and exports remain intact."
     }
   ]
 }

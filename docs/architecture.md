@@ -38,7 +38,7 @@ Implemented entities: Episode, EpisodeWorkspaceState, EpisodeScriptDraft, Source
 - Editions carry publisher/translator, resource ID, URL, import date, rights notes, and version/checksum. Passages retain canonical references and text.
 - Embeddings reference a source version and model, dimensions, and preprocessing revision. A model/configuration change creates a new index generation; never mix incompatible vector spaces.
 - Citations reference passage IDs and selected excerpt ranges. Script revisions preserve source versions.
-- The episode workspace persists an explicit selected script. Mutable autosave content lives in one revision-checked working-draft row per episode; named checkpoints and restored versions are immutable script revisions. Downstream readiness and composition validity use the selected script rather than whichever row was created last.
+- The episode workspace persists explicit selected script, voice take, caption track, and composition IDs plus an optimistic selection revision. Mutable autosave content lives in one revision-checked working-draft row per episode; named checkpoints and restored versions are immutable script revisions. Media selections must belong to the episode and match their selected dependencies. Incompatible pointers remain visible as stale work instead of silently switching to a newer artifact.
 - Assets carry relative storage paths, checksums, media metadata, origin, and license/provenance. Large files live on disk.
 - Reviews/renders reference immutable composition revisions so edits cannot silently alter an approved export.
 
@@ -60,9 +60,9 @@ Request timestamped transcription of generated narration using a supported model
 
 ## Rendering
 
-Prepare all media before rendering. Remotion consumes serializable composition data and local assets, shares inputs between preview/export, and never calls an LLM from a frame. Derive narrated duration from measured audio; derive text-only duration from versioned reading cards. Use deterministic animation, ready fonts, and explicit random seeds where needed.
+Prepare all media before rendering. Remotion consumes the explicitly selected immutable composition and its selected dependencies, shares the same serializable input between preview/export, and never calls an LLM from a frame. New narration alternatives use a fresh request identity and do not change an existing selection; retries retain the same job identity. Derive narrated duration from measured audio; derive text-only duration from versioned reading cards. Use deterministic animation, ready fonts, and explicit random seeds where needed.
 
-Two layout profiles adapt wrapping, source placement, and type size while keeping captions centered. Image/GIF choice, framing, dimming, music volume, loop, silence, fades, and background are composition settings. Uploaded media is checksummed and its source notes are copied into export descriptions. Text-only compositions have no voice/caption foreign keys and do not become stale when an unrelated narration take is generated. A new narration take invalidates timing and dependent renders.
+Two layout profiles adapt wrapping, source placement, and type size while keeping captions centered. Image/GIF choice, framing, dimming, music volume, loop, silence, fades, and background are composition settings. Uploaded media is checksummed and its source notes are copied into export descriptions. Text-only selections keep nullable voice/caption dependencies and do not become stale when an unrelated narration take is generated. Preview, render validation, and export currentness use persisted selections rather than creation order.
 
 ## Implemented infrastructure
 

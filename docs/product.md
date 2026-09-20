@@ -27,7 +27,7 @@ The accepted direction is a connected episode editor with Idea, Script & sources
 
 Milestone 1 is delivered as F008: the existing editing routes now reopen the most developed available work, show accurate saved, stale, generating, failed, and uncertain states, and guard unsaved edits on navigation. Existing uploads, caption timing, preview revisions, and download history are reused. New episodes show useful empty states in every section.
 
-F009 delivers the script-first part of milestone 2: revision-checked autosaved working drafts, named immutable checkpoints, explicit persisted script selection, history restore-as-new, and fresh alternatives that do not replace selected work. Downstream readiness follows the selected script. Undo/redo, side-by-side comparison, explicit voice/caption/composition selectors, AI partial rewrites, a scene timeline, richer sound/visual controls, and format-specific exports remain planned.
+F009 and F010 deliver the persisted-state part of milestone 2: revision-checked autosaved working drafts, named immutable script checkpoints, explicit script/voice/caption/composition selection, restore-as-new, and alternatives that do not replace selected work. The editor exposes immutable media history and downstream readiness, preview, render, and export follow the selected artifacts. Undo/redo, side-by-side comparison, AI partial rewrites, a scene timeline, richer sound/visual controls, and format-specific exports remain planned.
 
 ## Visual and editorial direction
 

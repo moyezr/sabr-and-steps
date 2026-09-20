@@ -10,7 +10,7 @@
 - `pnpm test:db`: creates a uniquely named disposable database, applies migrations twice, checks pgvector, persistence through a second connection, concurrent revision updates, and SQL constraints, then drops only that test database. Requires `DATABASE_URL` and database-creation privileges.
 - `pnpm build`: production compilation; `next/font/google` may need network access.
 
-`pnpm check` includes harness, lint, typecheck, and unit tests. Browser acceptance has been exercised manually through browser automation tools; there is no checked-in browser runner yet. Quran Foundation and OpenRouter retrieval/draft live checks are available. Credit/alignment and rendering fixture checks are implemented; actual speech/pilot acceptance remains pending. A harness check validates record structure, not the truth or sufficiency of evidence.
+`pnpm check` includes harness, lint, typecheck, and unit tests. Browser acceptance has been exercised manually through browser automation tools; there is no checked-in browser runner yet. Quran Foundation and OpenRouter retrieval/draft live checks are available. Credit/alignment, rendering fixtures, and a private pilot are verified; creator listening, editorial approval, and publication clearance remain pending. A harness check validates record structure, not the truth or sufficiency of evidence.
 
 ## Episode workspace acceptance
 
@@ -68,6 +68,14 @@ Run `pnpm check`, `pnpm test:db`, and `pnpm build`. The database suites must cov
 In the browser, edit a reflection and title, wait for the saved indicator, reload, and verify exact recovery. Confirm a working draft prevents selection/restore until it is named or explicitly discarded. Select an older version, reload, and confirm its words and downstream stale states persist; return to the original version. At a narrow viewport, verify the editor and history have no horizontal overflow. Use deterministic fixtures for generation, restore, and conflict cases when changing the real pilot would add permanent history or incur provider use.
 
 Latest evidence: [script versioning acceptance](evidence/2026-09-19-script-versioning.md).
+
+## Explicit media selection acceptance (F010)
+
+Run `pnpm check`, `pnpm test:db`, and `pnpm build`. Database coverage must prove deterministic migration backfill without deletion, same-episode and dependency validation, optimistic selection conflicts, first-take-only auto-selection, non-selecting alternatives, explicit caption/preview save selection, text-only null dependencies, and preview/render/export behavior driven by the selected composition.
+
+In the browser, select an older saved preview, reload, confirm its mode and media persist, then restore the original preview and reload again. Confirm immutable voice, caption, and preview history controls remain usable at desktop and 390 × 844 without horizontal overflow. Use disposable deterministic fixtures for multiple take/caption cases because the pilot has only one of each. No provider call is required.
+
+Latest evidence: [explicit media selection acceptance](evidence/2026-09-20-media-selection.md).
 
 ## Source browser acceptance
 

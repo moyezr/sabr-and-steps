@@ -2,7 +2,7 @@
 
 Date: 2026-09-16.
 
-Status: accepted by the creator; milestone 1 is complete as F008. Milestone 2 is in progress; F009 completed script versions and F010 is adding persisted voice, caption, and composition selection. Undo/comparison remains. This document records intended behavior; verification and session results remain in `PROGRESS.md` and `feature_list.json`.
+Status: accepted by the creator; milestone 1 is complete as F008. Milestone 2 is in progress; F009 completed script versions and F010 completed persisted voice, caption, and composition selection. Undo/redo and comparison remain. This document records intended behavior; verification and session results remain in `PROGRESS.md` and `feature_list.json`.
 
 ## Goal
 
@@ -131,12 +131,12 @@ Changes should affect only work that depends on them.
 
 ## Implementation milestones
 
-Implement one bounded milestone at a time, with acceptance evidence before proceeding. F008 tracks milestone 1; F005 is paused for creator feedback and resumes after the navigation milestone. D018 records the phased editor direction.
+Implement one bounded milestone at a time, with acceptance evidence before proceeding. F008 tracks milestone 1; F005 waits for creator listening and aesthetic feedback. D018 records the phased editor direction.
 
 | Order | Deliverable | Status |
 | --- | --- | --- |
 | 1 | Connected episode workspace, working navigation, existing-project loading | Completed (F008) |
-| 2 | Autosave, explicit version selection, history, correct change tracking | In progress (F009 complete; F010 media selection active) |
+| 2 | Autosave, explicit version selection, history, correct change tracking | In progress (F009 and F010 complete; undo/redo and comparison remain) |
 | 3 | Idea assistance, iterative script editing, source selection, partial rewrites | Planned |
 | 4 | Scene timeline, voice/caption editing, media library, visual controls | Planned |
 | 5 | Format-specific export, consolidated review, complete workflow testing | Planned |
@@ -147,7 +147,7 @@ Connect existing functionality through a shared episode workspace: Idea, Script 
 
 Load existing persisted artifacts and show stage states derived from their revisions and outstanding jobs. Keep incomplete sections accessible, explain prerequisites beside affected actions, preserve unsaved media edits when switching Studio sections, guard in-app links and browser reload/close, and retain earlier exports. The mounted episode workspace retains dirty drafts across intra-episode Back/Forward navigation; persisted recovery after reload or restart remains part of milestone 2. Reuse existing upload, timing, preview, and render controls without claiming new media capabilities.
 
-This milestone does not add autosave, undo/redo, named history, explicit selected-version persistence, partial AI rewrites, a scene timeline, or new rendering formats. Existing latest-artifact selection remains until milestone 2. No database migration or model inference is required. Completion requires the connected-editor checks in [docs/verification.md](docs/verification.md), not merely compilation.
+At delivery, this milestone did not add autosave, undo/redo, named history, explicit selected-version persistence, partial AI rewrites, a scene timeline, or new rendering formats. F009 and F010 have since added working drafts, immutable history, and explicit script/media selection. No database migration or model inference was required for F008 itself. Completion requires the connected-editor checks in [docs/verification.md](docs/verification.md), not merely compilation.
 
 Retain existing episodes, source records, media, and exports during migration. Future implementation should use focused commits with actual timestamps and follow the repository's verification and handoff rules.
 
