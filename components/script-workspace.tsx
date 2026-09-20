@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, RefreshCw } from "lucide-react";
+import { BookOpen, Redo2, RefreshCw, Undo2 } from "lucide-react";
 import {
   useEpisodeWorkspace,
   useWorkspaceBuffer,
@@ -10,6 +10,15 @@ import {
 } from "./episode-workspace";
 import type { WritingState } from "@/lib/server/writing/state";
 import { narrationText, type ScriptBlock } from "@/lib/domain/script";
+import {
+  compareScriptBlocks,
+  createScriptEditHistory,
+  recordScriptEdit,
+  redoScriptEdit,
+  syncScriptEditHistory,
+  undoScriptEdit,
+  type ScriptEditHistory,
+} from "@/lib/domain/script-editing";
 
 type LocalDraft = {
   selectedId: string;
@@ -20,7 +29,10 @@ type LocalDraft = {
     revision: number;
   } | null;
   dirty: boolean;
+  history: ScriptEditHistory | null;
 };
+
+type ComparisonChoice = { leftId: string; rightId: string };
 
 type AutosaveState = "idle" | "saving" | "saved" | "error" | "conflict";
 
@@ -35,20 +47,35 @@ class WritingRequestError extends Error {
 
 function localDraftFromState(state: WritingState): LocalDraft {
   const selectedId = state.selectedScriptId || state.scripts[0]?.id || "";
+  const selected = state.scripts.find((script) => script.id === selectedId);
   const working = state.workingDraft;
+  const edit =
+    working?.baseScriptId === selectedId
+      ? {
+          baseScriptId: selectedId,
+          blocks: working.blocks,
+          title: working.title,
+          revision: working.revision,
+        }
+      : null;
   return {
     selectedId,
-    edit:
-      working?.baseScriptId === selectedId
-        ? {
-            baseScriptId: selectedId,
-            blocks: working.blocks,
-            title: working.title,
-            revision: working.revision,
-          }
-        : null,
+    edit,
     dirty: false,
+    history: selected
+      ? createScriptEditHistory(selectedId, edit?.revision ?? 0, {
+          title: edit?.title ?? selected.title,
+          blocks: edit?.blocks ?? selected.blocks,
+        })
+      : null,
   };
+}
+
+function comparisonChoiceFromState(state: WritingState): ComparisonChoice {
+  const rightId = state.selectedScriptId || state.scripts[0]?.id || "";
+  const leftId =
+    state.scripts.find((script) => script.id !== rightId)?.id || rightId;
+  return { leftId, rightId };
 }
 
 function readableError(code: string) {
@@ -84,6 +111,10 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
     `script:version-label:${initial.episode.id}`,
     `Version ${initial.scripts.length + 1}`,
   );
+  const [comparison, setComparison] = useWorkspaceBuffer<ComparisonChoice>(
+    `script:comparison:${initial.episode.id}`,
+    comparisonChoiceFromState(initial),
+  );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [autosave, setAutosave] = useState<AutosaveState>(
@@ -98,7 +129,52 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
     };
   }, []);
 
-  const { selectedId, edit, dirty } = draft;
+  const reconciled = useRef(false);
+  useEffect(() => {
+    if (reconciled.current) return;
+    reconciled.current = true;
+    const serverDraft = initial.workingDraft;
+    if (!serverDraft) return;
+    let conflict = false;
+    setDraft((current) => {
+      if (
+        !current.edit ||
+        current.edit.baseScriptId !== serverDraft.baseScriptId ||
+        current.edit.revision >= serverDraft.revision
+      )
+        return current;
+      const sameContent =
+        current.edit.title === serverDraft.title &&
+        JSON.stringify(current.edit.blocks) ===
+          JSON.stringify(serverDraft.blocks);
+      if (!sameContent) {
+        conflict = true;
+        return { ...current, dirty: true };
+      }
+      return {
+        ...current,
+        edit: { ...current.edit, revision: serverDraft.revision },
+        dirty: false,
+        history: current.history
+          ? syncScriptEditHistory(
+              current.history,
+              serverDraft.baseScriptId,
+              serverDraft.revision,
+              current.history.present,
+            )
+          : current.history,
+      };
+    });
+    if (conflict) {
+      const timer = window.setTimeout(() => {
+        setAutosave("conflict");
+        setError(readableError("SCRIPT_DRAFT_CONFLICT"));
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, [initial.workingDraft, setDraft]);
+
+  const { selectedId, edit, dirty, history } = draft;
   const selected =
     state.scripts.find((script) => script.id === selectedId) ||
     state.scripts.find((script) => script.id === state.selectedScriptId) ||
@@ -132,23 +208,50 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
 
   function beginEdit(nextTitle: string, nextBlocks: ScriptBlock[]) {
     if (!selected) return;
-    setDraft((current) => ({
-      selectedId: selected.id,
-      edit: {
-        baseScriptId: selected.id,
-        blocks: nextBlocks,
-        title: nextTitle,
-        revision:
+    setDraft((current) => {
+      const revision =
+        current.edit?.baseScriptId === selected.id
+          ? current.edit.revision
+          : state.workingDraft?.baseScriptId === selected.id
+            ? state.workingDraft.revision
+            : 0;
+      const previous = {
+        title:
           current.edit?.baseScriptId === selected.id
-            ? current.edit.revision
-            : state.workingDraft?.baseScriptId === selected.id
-              ? state.workingDraft.revision
-              : 0,
-      },
-      dirty: true,
-    }));
-    setAutosave((current) => (current === "saving" ? "saving" : "idle"));
-    setError("");
+            ? current.edit.title
+            : selected.title,
+        blocks:
+          current.edit?.baseScriptId === selected.id
+            ? current.edit.blocks
+            : selected.blocks,
+      };
+      const currentHistory = current.history
+        ? syncScriptEditHistory(
+            current.history,
+            selected.id,
+            revision,
+            previous,
+          )
+        : createScriptEditHistory(selected.id, revision, previous);
+      return {
+        selectedId: selected.id,
+        edit: {
+          baseScriptId: selected.id,
+          blocks: nextBlocks,
+          title: nextTitle,
+          revision,
+        },
+        dirty: true,
+        history: recordScriptEdit(currentHistory, {
+          title: nextTitle,
+          blocks: nextBlocks,
+        }),
+      };
+    });
+    setAutosave((current) =>
+      current === "saving" || current === "conflict" ? current : "idle",
+    );
+    if (autosave !== "conflict") setError("");
   }
 
   function setBlocks(update: (items: ScriptBlock[]) => ScriptBlock[]) {
@@ -158,6 +261,62 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
   function setTitle(value: string) {
     beginEdit(value, blocks);
   }
+
+  const moveHistory = useCallback(
+    (direction: "undo" | "redo") => {
+      let changed = false;
+      setDraft((current) => {
+        if (!current.history) return current;
+        const nextHistory =
+          direction === "undo"
+            ? undoScriptEdit(current.history)
+            : redoScriptEdit(current.history);
+        if (nextHistory === current.history) return current;
+        changed = true;
+        return {
+          ...current,
+          edit: {
+            baseScriptId: nextHistory.baseScriptId,
+            title: nextHistory.present.title,
+            blocks: nextHistory.present.blocks,
+            revision: Math.max(
+              current.edit?.revision ?? 0,
+              nextHistory.revision,
+            ),
+          },
+          dirty: true,
+          history: nextHistory,
+        };
+      });
+      if (!changed) return;
+      setAutosave((current) =>
+        ["saving", "error", "conflict"].includes(current) ? current : "idle",
+      );
+    },
+    [setDraft],
+  );
+
+  useEffect(() => {
+    function handleHistoryShortcut(event: KeyboardEvent) {
+      if (event.isComposing || event.altKey || (!event.metaKey && !event.ctrlKey))
+        return;
+      const target = event.target;
+      if (
+        !(target instanceof Element) ||
+        !target.closest("[data-script-edit-field]")
+      )
+        return;
+      const key = event.key.toLowerCase();
+      const redo =
+        (key === "z" && event.shiftKey) ||
+        (key === "y" && event.ctrlKey && !event.metaKey);
+      if (key !== "z" && !redo) return;
+      event.preventDefault();
+      moveHistory(redo ? "redo" : "undo");
+    }
+    window.addEventListener("keydown", handleHistoryShortcut);
+    return () => window.removeEventListener("keydown", handleHistoryShortcut);
+  }, [moveHistory]);
 
   const writingRequest = useCallback(
     async (action: string, data: unknown) => {
@@ -263,6 +422,15 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                 revision: saved?.revision ?? current.edit.revision,
               },
               dirty: hasNewEdits,
+              history:
+                saved && current.history
+                  ? syncScriptEditHistory(
+                      current.history,
+                      snapshot.baseScriptId,
+                      saved.revision,
+                      current.history.present,
+                    )
+                  : current.history,
             };
           });
           setAutosave(hasNewEdits ? "idle" : "saved");
@@ -343,6 +511,16 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                     : 0,
               },
               dirty: true,
+              history:
+                current.history &&
+                next.workingDraft?.baseScriptId === selected.id
+                  ? syncScriptEditHistory(
+                      current.history,
+                      selected.id,
+                      next.workingDraft.revision,
+                      current.history.present,
+                    )
+                  : current.history,
             }
           : current,
       );
@@ -364,6 +542,20 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
   const workingDraft = state.workingDraft;
   const historyBlocked =
     busy || dirty || autosave === "saving" || Boolean(workingDraft);
+  const comparisonFallback = comparisonChoiceFromState(state);
+  const comparisonLeft =
+    state.scripts.find((script) => script.id === comparison.leftId) ||
+    state.scripts.find((script) => script.id === comparisonFallback.leftId);
+  const comparisonRight =
+    state.scripts.find((script) => script.id === comparison.rightId) ||
+    state.scripts.find((script) => script.id === comparisonFallback.rightId);
+  const comparisonRows = useMemo(
+    () =>
+      comparisonLeft && comparisonRight
+        ? compareScriptBlocks(comparisonLeft.blocks, comparisonRight.blocks)
+        : [],
+    [comparisonLeft, comparisonRight],
+  );
 
   return (
     <>
@@ -372,17 +564,41 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
           <h2>Script & sources</h2>
           <p>Shape your reflection. Keep quotations and their context intact.</p>
         </div>
-        <span className={`script-save-state ${autosave}`} role="status">
-          {autosave === "saving"
-            ? "Saving draft…"
-            : autosave === "saved" && workingDraft
-              ? "Working draft saved"
-              : autosave === "conflict"
-                ? "Save conflict"
-                : autosave === "error"
-                  ? "Draft not saved"
-                  : "Version saved"}
-        </span>
+        <div className="script-heading-actions">
+          <div className="script-undo-controls" aria-label="Edit history">
+            <button
+              type="button"
+              className="text-link"
+              disabled={!history?.past.length}
+              aria-keyshortcuts="Control+Z Meta+Z"
+              title="Undo script edit (Ctrl/Cmd+Z)"
+              onClick={() => moveHistory("undo")}
+            >
+              <Undo2 size={14} /> Undo
+            </button>
+            <button
+              type="button"
+              className="text-link"
+              disabled={!history?.future.length}
+              aria-keyshortcuts="Control+Y Control+Shift+Z Meta+Shift+Z"
+              title="Redo script edit (Ctrl+Y or Ctrl/Cmd+Shift+Z)"
+              onClick={() => moveHistory("redo")}
+            >
+              <Redo2 size={14} /> Redo
+            </button>
+          </div>
+          <span className={`script-save-state ${autosave}`} role="status">
+            {autosave === "saving"
+              ? "Saving draft…"
+              : autosave === "saved" && workingDraft
+                ? "Working draft saved"
+                : autosave === "conflict"
+                  ? "Save conflict"
+                  : autosave === "error"
+                    ? "Draft not saved"
+                    : "Version saved"}
+          </span>
+        </div>
       </header>
       {error && (
         <div className="source-notice" role="alert">
@@ -589,6 +805,7 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
               <label className="writing-title">
                 Working title
                 <input
+                  data-script-edit-field
                   value={title}
                   maxLength={140}
                   onChange={(event) => setTitle(event.target.value)}
@@ -617,6 +834,7 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                     </>
                   ) : (
                     <textarea
+                      data-script-edit-field
                       aria-label={`Reflection ${index + 1}`}
                       value={block.text}
                       rows={Math.max(3, Math.ceil(block.text.length / 70))}
@@ -703,6 +921,135 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                 ))}
             </aside>
           </div>
+          {comparisonLeft && comparisonRight && (
+            <section className="panel script-comparison">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">IMMUTABLE CHECKPOINTS</span>
+                  <h2>Compare versions</h2>
+                </div>
+                <span>{comparisonRows.length} aligned blocks</span>
+              </div>
+              <p className="muted">
+                Compare two saved versions without changing the selected
+                version. The autosaved working draft is intentionally excluded.
+              </p>
+              <div className="script-comparison-selectors">
+                <label>
+                  Version A
+                  <select
+                    value={comparisonLeft.id}
+                    onChange={(event) =>
+                      setComparison((current) => ({
+                        ...current,
+                        leftId: event.target.value,
+                      }))
+                    }
+                  >
+                    {state.scripts.map((script) => (
+                      <option key={script.id} value={script.id}>
+                        {script.label} · {script.changeKind.replaceAll("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                  <small>
+                    {comparisonLeft.model} · {new Date(
+                      comparisonLeft.createdAt,
+                    ).toLocaleString()}
+                  </small>
+                </label>
+                <label>
+                  Version B
+                  <select
+                    value={comparisonRight.id}
+                    onChange={(event) =>
+                      setComparison((current) => ({
+                        ...current,
+                        rightId: event.target.value,
+                      }))
+                    }
+                  >
+                    {state.scripts.map((script) => (
+                      <option key={script.id} value={script.id}>
+                        {script.label} · {script.changeKind.replaceAll("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                  <small>
+                    {comparisonRight.model} · {new Date(
+                      comparisonRight.createdAt,
+                    ).toLocaleString()}
+                  </small>
+                </label>
+              </div>
+              <div
+                className={`script-comparison-title ${
+                  comparisonLeft.title === comparisonRight.title
+                    ? "unchanged"
+                    : "changed"
+                }`}
+              >
+                <span className="script-comparison-status">
+                  {comparisonLeft.title === comparisonRight.title
+                    ? "Unchanged title"
+                    : "Changed title"}
+                </span>
+                <div>
+                  <small>Version A title</small>
+                  <strong>{comparisonLeft.title}</strong>
+                </div>
+                <div>
+                  <small>Version B title</small>
+                  <strong>{comparisonRight.title}</strong>
+                </div>
+              </div>
+              <div className="script-comparison-rows">
+                {comparisonRows.map((row) => (
+                  <article
+                    className={`script-comparison-row ${row.status}`}
+                    key={`${row.status}-${row.leftIndex ?? "x"}-${row.rightIndex ?? "x"}`}
+                  >
+                    <span className="script-comparison-status">
+                      {row.status === "added"
+                        ? "Added in B"
+                        : row.status === "removed"
+                          ? "Removed from B"
+                          : row.status === "changed"
+                            ? "Changed"
+                            : "Unchanged"}
+                    </span>
+                    {[row.left, row.right].map((block, side) => (
+                      <div
+                        className={`script-comparison-cell ${
+                          block ? "" : "empty"
+                        }`}
+                        key={side}
+                      >
+                        <small>{side === 0 ? "Version A" : "Version B"}</small>
+                        {block ? (
+                          <>
+                            <span className="eyebrow">
+                              {block.kind === "quote"
+                                ? `QUR’AN ${block.reference}`
+                                : "ORIGINAL REFLECTION"}
+                            </span>
+                            <p translate={block.kind === "quote" ? "no" : undefined}>
+                              {block.text}
+                            </p>
+                            {block.kind === "quote" && (
+                              <small>{block.edition}</small>
+                            )}
+                          </>
+                        ) : (
+                          <p>No corresponding block.</p>
+                        )}
+                      </div>
+                    ))}
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
           <section className="panel script-history">
             <div className="section-heading">
               <div>

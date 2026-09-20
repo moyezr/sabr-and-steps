@@ -1683,6 +1683,25 @@ h1 em {
   justify-content: space-between;
   gap: 18px;
 }
+.script-heading-actions,
+.script-undo-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.script-undo-controls {
+  padding: 6px 10px;
+  border: 1px solid var(--separator);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.script-undo-controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
 .script-save-state {
   flex-shrink: 0;
   border: 1px solid var(--separator);
@@ -1774,6 +1793,99 @@ h1 em {
   gap: 12px;
   flex-shrink: 0;
 }
+.script-comparison {
+  margin-top: 24px;
+  padding: 24px;
+}
+.script-comparison > .muted {
+  margin: -6px 0 18px;
+}
+.script-comparison-selectors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.script-comparison-selectors label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.script-comparison-selectors select {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid var(--separator);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.script-comparison-selectors small,
+.script-comparison-cell > small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.script-comparison-title,
+.script-comparison-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+  padding: 32px 14px 14px;
+  border: 1px solid var(--separator);
+  border-radius: 8px;
+}
+.script-comparison-title > div,
+.script-comparison-cell {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+}
+.script-comparison-title > div {
+  display: grid;
+  gap: 6px;
+}
+.script-comparison-title.changed,
+.script-comparison-row.changed {
+  border-color: #c79b5d;
+  background: #fff8e9;
+}
+.script-comparison-row.added {
+  border-color: #8cb294;
+  background: #f0f7ef;
+}
+.script-comparison-row.removed {
+  border-color: #c78b7f;
+  background: #fff2ee;
+}
+.script-comparison-status {
+  position: absolute;
+  top: 9px;
+  left: 14px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.script-comparison-cell {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+.script-comparison-cell .eyebrow {
+  margin-top: 4px;
+}
+.script-comparison-cell p {
+  margin: 0;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.script-comparison-cell.empty {
+  color: var(--muted);
+  background: transparent;
+  border: 1px dashed var(--separator);
+}
 .writing-context p {
   font-size: 13px;
   line-height: 1.8;
@@ -1818,6 +1930,15 @@ button:disabled {
   .script-heading,
   .script-history-list article {
     flex-direction: column;
+  }
+  .script-heading-actions,
+  .script-undo-controls {
+    justify-content: flex-start;
+  }
+  .script-comparison-selectors,
+  .script-comparison-title,
+  .script-comparison-row {
+    grid-template-columns: minmax(0, 1fr);
   }
   .script-history-actions {
     justify-content: flex-start;
