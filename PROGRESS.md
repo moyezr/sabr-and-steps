@@ -5,7 +5,7 @@ Last updated: 2026-09-20.
 ## Current state
 
 - Repository: `/Users/moyezrabbani/Development/Projects/sabr-and-steps`.
-- Passing: H001 and F001–F003, F008–F010. F004 and F005 wait for creator listening/aesthetic feedback; F006 still needs exact-revision review and creator approval.
+- Passing: H001 and F001–F003, F008–F010. F011 is active. F004 and F005 wait for creator listening/aesthetic feedback; F006 still needs exact-revision review and creator approval.
 - The connected episode editor exposes Idea, Script & sources, Voice & captions, Music, Backgrounds, Video, and Exports for existing and incomplete episodes.
 - Script models remain exactly `openai/gpt-5.6-luna` and `google/gemini-3.8-flash` through OpenRouter. Speech remains direct through configured providers with credit and rights checks.
 - PostgreSQL 17/pgvector runs locally on loopback port 55432. Provider outputs and final assets remain in the ignored local data directory.
@@ -35,6 +35,6 @@ Last updated: 2026-09-20.
 - `pnpm build` and `git diff --check` pass.
 - The real local database is migrated through 0008.
 
-## Next bounded action
+## Active bounded work
 
-Add client undo/redo and side-by-side immutable script comparison for the remaining PLAN.md milestone-2 work. Keep the server draft revision as the persistence boundary, cap transient undo history, clear redo after new edits, and verify keyboard, reload, conflict, and mobile behavior before marking it complete.
+F011 adds client undo/redo and side-by-side immutable script comparison for the remaining PLAN.md milestone-2 work. Keep the server draft revision as the persistence boundary, cap transient undo history, clear redo after new edits, and verify keyboard, reload, conflict, and mobile behavior before marking it complete.

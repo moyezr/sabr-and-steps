@@ -2,7 +2,7 @@
 
 Date: 2026-09-16.
 
-Status: accepted by the creator; milestone 1 is complete as F008. Milestone 2 is in progress; F009 completed script versions and F010 completed persisted voice, caption, and composition selection. Undo/redo and comparison remain. This document records intended behavior; verification and session results remain in `PROGRESS.md` and `feature_list.json`.
+Status: accepted by the creator; milestone 1 is complete as F008. Milestone 2 is in progress; F009 completed script versions and F010 completed persisted voice, caption, and composition selection. F011 is implementing undo/redo and side-by-side comparison. This document records intended behavior; verification and session results remain in `PROGRESS.md` and `feature_list.json`.
 
 ## Goal
 
@@ -136,7 +136,7 @@ Implement one bounded milestone at a time, with acceptance evidence before proce
 | Order | Deliverable | Status |
 | --- | --- | --- |
 | 1 | Connected episode workspace, working navigation, existing-project loading | Completed (F008) |
-| 2 | Autosave, explicit version selection, history, correct change tracking | In progress (F009 and F010 complete; undo/redo and comparison remain) |
+| 2 | Autosave, explicit version selection, history, correct change tracking | In progress (F009 and F010 complete; F011 undo/redo and comparison active) |
 | 3 | Idea assistance, iterative script editing, source selection, partial rewrites | Planned |
 | 4 | Scene timeline, voice/caption editing, media library, visual controls | Planned |
 | 5 | Format-specific export, consolidated review, complete workflow testing | Planned |

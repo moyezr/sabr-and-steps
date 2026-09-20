@@ -218,6 +218,24 @@
         "2026-09-20: Migration 0008, deterministic selection backfill, revision-checked media selectors, first-take-only auto-selection, non-selecting alternatives, immutable caption/preview saves, selected-dependency preview/render/export behavior, and text-only nullable dependencies passed automated and browser acceptance. pnpm check passed 29 unit tests plus lint/types/harness, all 4 pnpm test:db suites passed, and pnpm build passed. The pilot persisted an older narrated preview across reload, then returned to its original text-only preview; 390 x 844 had no horizontal overflow. Multiple take/caption selection used disposable fixtures and no provider was called. See docs/evidence/2026-09-20-media-selection.md."
       ],
       "notes": "Completed PLAN.md milestone 2B. Voice, caption, and composition history now follows explicit persisted selections. Undo/redo and side-by-side script comparison are next; existing creator media and exports remain intact."
+    },
+    {
+      "id": "F011",
+      "priority": 11,
+      "area": "writing",
+      "title": "Undo script edits and compare versions",
+      "user_visible_behavior": "The creator can undo and redo unsaved script edits and compare any two immutable script versions side by side without changing the selected version or working draft.",
+      "status": "in_progress",
+      "verification": [
+        "Edit the title and script blocks, undo and redo with controls and platform keyboard shortcuts, and verify new edits clear redo while history remains bounded.",
+        "Move between episode sections and confirm transient undo history remains available while the mounted workspace stays open; reload and confirm the autosaved draft persists even though transient history resets.",
+        "Create a concurrent draft conflict and verify undo/redo never discards the local buffer or bypasses the newest server draft revision.",
+        "Choose two immutable script versions independently, compare aligned added, removed, and changed blocks side by side, and verify comparison does not change selection or the working draft.",
+        "Verify quotation text remains protected, history controls are keyboard accessible, and the script editor and comparison fit desktop and 390 x 844 layouts.",
+        "Run pnpm check, pnpm test:db, pnpm build, and the documented browser journey without model or speech calls."
+      ],
+      "evidence": [],
+      "notes": "PLAN.md milestone 2C. Undo/redo is bounded client history layered over revision-checked autosave; comparison reads immutable versions and never mutates selection."
     }
   ]
 }
