@@ -225,7 +225,7 @@
       "area": "writing",
       "title": "Undo script edits and compare versions",
       "user_visible_behavior": "The creator can undo and redo unsaved script edits and compare any two immutable script versions side by side without changing the selected version or working draft.",
-      "status": "in_progress",
+      "status": "passing",
       "verification": [
         "Edit the title and script blocks, undo and redo with controls and platform keyboard shortcuts, and verify new edits clear redo while history remains bounded.",
         "Move between episode sections and confirm transient undo history remains available while the mounted workspace stays open; reload and confirm the autosaved draft persists even though transient history resets.",
@@ -234,8 +234,10 @@
         "Verify quotation text remains protected, history controls are keyboard accessible, and the script editor and comparison fit desktop and 390 x 844 layouts.",
         "Run pnpm check, pnpm test:db, pnpm build, and the documented browser journey without model or speech calls."
       ],
-      "evidence": [],
-      "notes": "PLAN.md milestone 2C. Undo/redo is bounded client history layered over revision-checked autosave; comparison reads immutable versions and never mutates selection."
+      "evidence": [
+        "2026-09-20: Bounded undo/redo, keyboard shortcuts, section-navigation retention, reload reset over persisted autosave, immutable two-version comparison, conflict preservation, and quotation protection passed unit and browser acceptance. pnpm check passed 34 unit tests plus lint/types/harness, all 4 pnpm test:db suites passed, and pnpm build passed. The real pilot exercised title/reflection edits, independent comparison selectors, a two-tab optimistic conflict, and a 390 x 844 layout without horizontal overflow. Temporary drafts were removed and no provider was called. See docs/evidence/2026-09-20-script-undo-comparison.md."
+      ],
+      "notes": "Completed PLAN.md milestone 2C and milestone 2. Undo/redo is bounded client history layered over revision-checked autosave; comparison reads immutable versions and never mutates selection. Milestone 3 idea assistance and targeted rewrites are next."
     }
   ]
 }

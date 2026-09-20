@@ -109,3 +109,9 @@ This decision covers script state. D020 covers selected media; undo/redo and sid
 **Implemented in F010, 2026-09-20.** Episode workspace state persists selected voice, caption, and composition IDs under one optimistic selection revision. Migration backfill preserves previous behavior by choosing the deterministic newest compatible row by `(created_at, id)` without deleting artifacts. Selections must belong to the episode and match their dependencies. Incompatible pointers remain visible as stale work instead of silently switching.
 
 Only the first completed narration selects itself when no voice choice exists. Later generated alternatives append history with a fresh request identity; retries keep their job identity. Explicit caption timing and preview saves create and select new immutable revisions. Text-only compositions permit null voice/caption selections. Preview, render validation, and export currentness all consume the selected composition and its selected dependencies.
+
+## D021 — Transient undo and immutable version comparison
+
+**Implemented in F011, 2026-09-20.** Script undo/redo is a bounded client history of 100 cloned title/block snapshots layered over revision-checked autosave. The history stays in the mounted episode buffer across section navigation and resets on reload; the database working draft remains the recovery boundary. Undo and redo change content only and retain the newest known server revision. A newer conflicting server draft preserves local content and requires explicit recovery.
+
+Comparison reads any two immutable revisions already returned by writing state. Deterministic LCS anchors prevent an insertion from marking every later block as changed; unmatched gaps become changed, added, or removed rows. Comparison excludes the working draft and never changes script selection.

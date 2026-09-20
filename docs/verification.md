@@ -77,6 +77,14 @@ In the browser, select an older saved preview, reload, confirm its mode and medi
 
 Latest evidence: [explicit media selection acceptance](evidence/2026-09-20-media-selection.md).
 
+## Script undo and comparison acceptance (F011)
+
+Run `pnpm check`, `pnpm test:db`, and `pnpm build`. Unit coverage must prove the 100-snapshot history bound, undo/redo, redo clearing after a new edit, immutable snapshot cloning, newest server revision preservation, base-version reset, and deterministic added/removed/changed/unchanged block alignment.
+
+In the browser, edit the title and a reflection, use buttons and Ctrl/Cmd shortcuts, and confirm quotations remain read-only. Verify undo history survives section navigation, autosaved content survives reload while transient history resets, a concurrent conflict retains local content and history until explicit recovery, and two comparison selectors do not change the selected version or working draft. Check desktop and 390 × 844 layouts, then remove temporary drafts without creating a checkpoint.
+
+Latest evidence: [script undo and comparison acceptance](evidence/2026-09-20-script-undo-comparison.md).
+
 ## Source browser acceptance
 
 Run `pnpm check`, `pnpm test:db`, and `pnpm build`. Source unit fixtures cover formatting, invalid references/editions, auth renewal, and sanitized failures. Disposable database checks cover failed-chapter recovery, atomic checkpoints, concurrent import exclusion, refreshed-content deduplication, preserved prior versions, search/context, and migration constraints. Fixtures are synthetic and are not live-provider evidence.

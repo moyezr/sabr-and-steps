@@ -31,6 +31,8 @@ Use one repository. Keep the root-level `app/`, `components/`, `config/`, and `s
 
 Browser code must not import server modules. Mark Next.js server-only entry points and validate browser/provider inputs. Shared domain/composition modules must not read secrets. Keep worker infrastructure independent of Next-only module loading.
 
+The mounted episode workspace keeps a bounded client-only script undo/redo stack of immutable content snapshots. It survives movement between episode sections, resets on reload, and never rolls back the newest optimistic server draft revision. Autosave remains the persistence boundary. Version comparison reads two immutable script revisions already present in writing state and has no mutation path to selection or the working draft.
+
 ## Data design
 
 Implemented entities: Episode, EpisodeWorkspaceState, EpisodeScriptDraft, SourceImport, SourcePassage, EmbeddingIndex, PassageEmbedding, QueryEmbedding, ScriptRevision, Job, ProviderUsage, VoiceTake, CaptionTrack, Composition, and VideoExport. Review state currently exists on script/media records; full final-review workflow remains pending. See [source import details](sources.md).
