@@ -29,7 +29,9 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
     ? requestedSection
     : "video";
   const { refreshWorkspace } = useEpisodeWorkspace();
-  const saved = initial.compositions[0]?.data;
+  const saved = initial.compositions.find(
+    (item) => item.id === initial.selectedCompositionId,
+  )?.data;
   const [mode, setMode, clearMode] = useWorkspaceBuffer<"narrated" | "text">(
     "media:mode",
     saved?.mode || "narrated",
@@ -148,10 +150,22 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
   const script =
       state.scripts.find((item) => item.id === state.selectedScriptId) ||
       state.scripts[0],
-    take = state.takes.find((t) => !t.stale),
-    track = state.tracks.find((t) => t.voiceTakeId === take?.id),
-    composition = state.compositions[0],
+    take = state.takes.find((t) => t.id === state.selectedVoiceTakeId),
+    selectedTrack = state.tracks.find(
+      (t) => t.id === state.selectedCaptionTrackId,
+    ),
+    track =
+      selectedTrack?.voiceTakeId === take?.id ? selectedTrack : undefined,
+    composition = state.compositions.find(
+      (item) => item.id === state.selectedCompositionId,
+    ),
     output = state.exports.find((e) => e.compositionId === composition?.id);
+  const takeHistory = state.takes.filter(
+    (item) => item.scriptId === script?.id,
+  );
+  const captionHistory = state.tracks.filter(
+    (item) => item.voiceTakeId === take?.id,
+  );
   const preview = composition;
   const baseline = preview?.data;
   const settingsDirty =
@@ -210,6 +224,42 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
       clearInterval(timer);
     };
   }, [active, initial.episode.id, refreshWorkspace]);
+  function applyCompositionSettings(
+    data: MediaState["compositions"][number]["data"],
+  ) {
+    setMode(data.mode || "narrated");
+    setReadingWpm(data.readingWpm || 110);
+    setImageId(data.image?.id || "");
+    setImageDim(data.imageDim ?? 0.45);
+    setImagePosition(data.imagePosition ?? 50);
+    setMusicId(data.music?.id || "");
+    setMusicVolume(data.musicVolume ?? 0.2);
+    setMusicLoop(data.musicLoop ?? true);
+    setMusicFade(data.musicFade ?? 3);
+    setBackground(data.background);
+    setVolume(data.narrationVolume ?? 1);
+  }
+  async function refreshMedia() {
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/episodes/${state.episode.id}/media`);
+      if (!response.ok) throw new Error("Could not refresh studio");
+      const next: MediaState = await response.json();
+      setState(next);
+      if (!settingsDirty && !timing) {
+        const selected = next.compositions.find(
+          (item) => item.id === next.selectedCompositionId,
+        );
+        if (selected) applyCompositionSettings(selected.data);
+      }
+      setError("");
+      await refreshWorkspace();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Refresh failed");
+    } finally {
+      setBusy(false);
+    }
+  }
   async function act(action: string, data: unknown) {
     setBusy(true);
     setError("");
@@ -223,9 +273,16 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
       if (!r.ok) throw new Error(result.error);
       const fresh = await fetch(`/api/episodes/${state.episode.id}/media`);
       if (!fresh.ok) throw new Error("Could not refresh studio");
-      setState(await fresh.json());
+      const next: MediaState = await fresh.json();
+      setState(next);
       await refreshWorkspace();
       if (!mounted.current) return;
+      if (action === "selectComposition") {
+        const selected = next.compositions.find(
+          (item) => item.id === next.selectedCompositionId,
+        );
+        if (selected) applyCompositionSettings(selected.data);
+      }
       if (
         action === "compose" &&
         latestDraft.current.settingsSnapshot === settingsSnapshot
@@ -243,6 +300,10 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
         clearVolume();
       }
       if (action === "timing" && latestDraft.current.timing === timing) {
+        setTiming(null);
+        clearTiming();
+      }
+      if (action === "selectVoice" || action === "selectCaption") {
         setTiming(null);
         clearTiming();
       }
@@ -322,7 +383,10 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
     <>
       {error && (
         <div className="status-message error" role="alert">
-          {error.replaceAll("_", " ")}
+          <span>{error.replaceAll("_", " ")}</span>
+          <button disabled={busy} onClick={() => void refreshMedia()}>
+            Refresh media history
+          </button>
         </div>
       )}
       <div className="media-grid">
@@ -512,14 +576,96 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                   {take && (
                     <div className="take-player">
                       <h3>
-                        {take.voiceName} · {Math.round(take.duration)} seconds
+                        Selected take · {take.voiceName} ·{" "}
+                        {Math.round(take.duration)} seconds
                       </h3>
                       <audio controls preload="metadata" src={take.audioUrl} />
                       <p className="muted">
-                        Listen through, especially the quotation and
-                        pronunciation.
+                        {take.stale
+                          ? "This take belongs to an earlier script selection. Choose a take for the selected script or generate another."
+                          : "Listen through, especially the quotation and pronunciation."}
                       </p>
                     </div>
+                  )}
+                  {takeHistory.length > 0 && (
+                    <section className="media-history" aria-label="Voice take history">
+                      <div className="media-history-heading">
+                        <h3>Voice take history</h3>
+                        <span>{takeHistory.length} takes</span>
+                      </div>
+                      {takeHistory.map((item) => (
+                        <div className="media-history-row" key={item.id}>
+                          <div>
+                            <strong>{item.voiceName}</strong>
+                            {item.id === state.selectedVoiceTakeId && (
+                              <span className="selected-pill">Selected</span>
+                            )}
+                            <small>
+                              {item.provider} · {item.model} ·{" "}
+                              {Math.round(item.duration)} seconds ·{" "}
+                              {new Date(item.createdAt).toLocaleString()}
+                            </small>
+                          </div>
+                          <button
+                            className="text-link"
+                            disabled={
+                              busy ||
+                              Boolean(timing) ||
+                              item.id === state.selectedVoiceTakeId
+                            }
+                            onClick={() =>
+                              void act("selectVoice", {
+                                voiceTakeId: item.id,
+                                selectionRevision: state.selectionRevision,
+                              })
+                            }
+                          >
+                            Use this take
+                          </button>
+                        </div>
+                      ))}
+                    </section>
+                  )}
+                  {take && captionHistory.length > 0 && (
+                    <section
+                      className="media-history"
+                      aria-label="Caption timing history"
+                    >
+                      <div className="media-history-heading">
+                        <h3>Caption timing history</h3>
+                        <span>{captionHistory.length} revisions</span>
+                      </div>
+                      {captionHistory.map((item, index) => (
+                        <div className="media-history-row" key={item.id}>
+                          <div>
+                            <strong>Timing {captionHistory.length - index}</strong>
+                            {item.id === state.selectedCaptionTrackId && (
+                              <span className="selected-pill">Selected</span>
+                            )}
+                            <small>
+                              {item.cues.length} phrases ·{" "}
+                              {new Date(item.createdAt).toLocaleString()}
+                            </small>
+                          </div>
+                          <button
+                            className="text-link"
+                            disabled={
+                              busy ||
+                              Boolean(timing) ||
+                              item.id === state.selectedCaptionTrackId
+                            }
+                            onClick={() =>
+                              void act("selectCaption", {
+                                captionTrackId: item.id,
+                                selectionRevision: state.selectionRevision,
+                              })
+                            }
+                          >
+                            Use this timing
+                          </button>
+                        </div>
+                      ))}
+                    </section>
                   )}
                 </>
               )}
@@ -602,6 +748,7 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                       void act("timing", {
                         voiceTakeId: take!.id,
                         parentId: track.id,
+                        selectionRevision: state.selectionRevision,
                         changes: cues.map((c) => ({
                           start: c.start,
                           end: c.end,
@@ -1034,7 +1181,8 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                 </Link>
                 . You can choose and upload media now.
               </p>
-            ) : mode === "narrated" && (!take || !track) ? (
+            ) : mode === "narrated" &&
+              (!take || !track || take.stale || track.stale) ? (
               <p className="muted">
                 Generate narration in Voice & captions, or choose text-only
                 reading cards, before saving a preview.
@@ -1054,10 +1202,16 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
               disabled={
                 busy ||
                 !script ||
-                (mode === "narrated" && (!take || !track || Boolean(timing)))
+                (mode === "narrated" &&
+                  (!take ||
+                    !track ||
+                    take.stale ||
+                    track.stale ||
+                    Boolean(timing)))
               }
               onClick={() =>
                 void act("compose", {
+                  selectionRevision: state.selectionRevision,
                   scriptId: script?.id,
                   voiceTakeId: mode === "narrated" ? take!.id : null,
                   captionTrackId: mode === "narrated" ? track!.id : null,
@@ -1078,6 +1232,50 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
               Save preview revision
             </button>
           </div>
+          {state.compositions.length > 0 && (
+            <section className="media-history composition-history">
+              <div className="media-history-heading">
+                <h3>Preview history</h3>
+                <span>{state.compositions.length} revisions</span>
+              </div>
+              {state.compositions.map((item, index) => (
+                <div className="media-history-row" key={item.id}>
+                  <div>
+                    <strong>
+                      Preview {state.compositions.length - index} ·{" "}
+                      {item.data.mode === "text" ? "Text only" : "Narrated"}
+                    </strong>
+                    {item.id === state.selectedCompositionId && (
+                      <span className="selected-pill">Selected</span>
+                    )}
+                    <small>
+                      {item.data.image?.name || item.data.background} ·{" "}
+                      {item.data.duration.toFixed(1)} seconds ·{" "}
+                      {new Date(item.createdAt).toLocaleString()}
+                      {item.stale ? " · Dependencies changed" : ""}
+                    </small>
+                  </div>
+                  <button
+                    className="text-link"
+                    disabled={
+                      busy ||
+                      settingsDirty ||
+                      Boolean(timing) ||
+                      item.id === state.selectedCompositionId
+                    }
+                    onClick={() =>
+                      void act("selectComposition", {
+                        compositionId: item.id,
+                        selectionRevision: state.selectionRevision,
+                      })
+                    }
+                  >
+                    Use this preview
+                  </button>
+                </div>
+              ))}
+            </section>
+          )}
         </section>
       </div>
       <section className="panel job-panel">
