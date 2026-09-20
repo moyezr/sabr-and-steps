@@ -5,7 +5,7 @@ Last updated: 2026-09-20.
 ## Current state
 
 - Repository: `/Users/moyezrabbani/Development/Projects/sabr-and-steps`.
-- Passing: H001 and F001–F003, F008–F011. PLAN.md milestones 1 and 2 are complete. F004 and F005 wait for creator listening/aesthetic feedback; F006 still needs exact-revision review and creator approval.
+- Passing: H001 and F001–F003, F008–F011. F012 is active. PLAN.md milestones 1 and 2 are complete. F004 and F005 wait for creator listening/aesthetic feedback; F006 still needs exact-revision review and creator approval.
 - The connected editor exposes Idea, Script & sources, Voice & captions, Music, Backgrounds, Video, and Exports for existing and incomplete episodes.
 - Script models remain exactly `openai/gpt-5.6-luna` and `google/gemini-3.8-flash` through OpenRouter. Speech remains direct through configured providers with credit and rights checks.
 - PostgreSQL 17/pgvector runs locally on loopback port 55432. Provider outputs and final assets remain in the ignored local data directory.
@@ -35,6 +35,6 @@ Last updated: 2026-09-20.
 - `pnpm build` and `git diff --check` pass.
 - The real local database is migrated through 0008. No provider call was made for F008–F011.
 
-## Next bounded action
+## Active bounded work
 
-Start PLAN.md milestone 3 with idea assistance: turn a vague feeling or scenario into retained angle, title, hook, and takeaway suggestions using either permitted model, without replacing the saved episode brief or current script.
+F012 starts PLAN.md milestone 3 with idea assistance: turn a vague feeling or scenario into retained angle, title, hook, and takeaway suggestions using either permitted model, without replacing the saved episode brief or current script.

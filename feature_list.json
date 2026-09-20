@@ -238,6 +238,24 @@
         "2026-09-20: Bounded undo/redo, keyboard shortcuts, section-navigation retention, reload reset over persisted autosave, immutable two-version comparison, conflict preservation, and quotation protection passed unit and browser acceptance. pnpm check passed 34 unit tests plus lint/types/harness, all 4 pnpm test:db suites passed, and pnpm build passed. The real pilot exercised title/reflection edits, independent comparison selectors, a two-tab optimistic conflict, and a 390 x 844 layout without horizontal overflow. Temporary drafts were removed and no provider was called. See docs/evidence/2026-09-20-script-undo-comparison.md."
       ],
       "notes": "Completed PLAN.md milestone 2C and milestone 2. Undo/redo is bounded client history layered over revision-checked autosave; comparison reads immutable versions and never mutates selection. Milestone 3 idea assistance and targeted rewrites are next."
+    },
+    {
+      "id": "F012",
+      "priority": 12,
+      "area": "ideas",
+      "title": "Develop a feeling into retained idea directions",
+      "user_visible_behavior": "The creator can describe a vague feeling or scenario, ask either permitted model for several Islamic video directions, keep earlier suggestions, and explicitly use a title, hook, angle, or takeaway without silently replacing the saved brief or script.",
+      "status": "in_progress",
+      "verification": [
+        "Persist multiple idea suggestion sets with model, instructions, input episode revision, and creation time; retain earlier results when the model changes or another request completes.",
+        "Generate a fresh deterministic alternative for each new request while retries keep the same durable job; never replace the saved episode brief, selected script, or working draft automatically.",
+        "Validate structured angle, title, hook, and practical takeaway output; reject unsupported or malformed provider results without partial persistence.",
+        "Let the creator explicitly copy a suggestion into the editable idea form, review the resulting dirty state, and save it through the existing revision-checked episode update.",
+        "Finish a suggestion while the creator edits the idea and verify the local edit remains intact and the suggestion appears separately with clear model provenance.",
+        "Run pnpm check, pnpm test:db, pnpm build, and desktop/mobile browser acceptance with deterministic provider fixtures; label any live model call separately."
+      ],
+      "evidence": [],
+      "notes": "PLAN.md milestone 3A. This slice adds retained idea assistance before targeted script rewrites and source insertion."
     }
   ]
 }
