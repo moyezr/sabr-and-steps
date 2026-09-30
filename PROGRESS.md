@@ -5,6 +5,7 @@ Last updated: 2026-09-30.
 ## Current state
 
 - Repository: `/Users/moyezrabbani/Development/Projects/sabr-and-steps`.
+- Working branch: `main`. The complete editor branch is integrated; `main` and `codex/episode-editor` are synchronized.
 - Passing: H001 and F001–F003, F008–F012. No feature is currently active. PLAN.md milestones 1 and 2 are complete. F004 and F005 wait for creator listening/aesthetic feedback; F006 still needs exact-revision review and creator approval.
 - The connected editor exposes Idea, Script & sources, Voice & captions, Music, Backgrounds, Video, and Exports for existing and incomplete episodes.
 - Script models remain exactly `openai/gpt-5.6-luna` and `google/gemini-3.8-flash` through OpenRouter. Speech remains direct through configured providers with credit and rights checks.
@@ -12,6 +13,13 @@ Last updated: 2026-09-30.
 - The verified production app at `http://127.0.0.1:3107` and durable worker are intentionally running for creator review. The local database had no queued/running/uncertain jobs before the worker was started.
 
 ## Latest completed work
+
+### Main reconciliation — 2026-09-30
+
+- Integrated all 22 editor commits from `codex/episode-editor` into `main` by fast-forward, preserving commit history. There was no divergence or merge conflict, and no other local/remote branch contained omitted work.
+- Verified the contiguous migrations 0007–0009 and agreement among the roadmap, feature tracker, and handoff. Feature acceptance and outstanding creator feedback/rights limitations remain unchanged.
+- `pnpm check` passed all 38 unit tests plus harness/lint/types; all five `pnpm test:db` suites, `pnpm build`, and `git diff --check` passed. The integrated code tree is identical to the previously verified editor branch; no live inference was used.
+- Recorded this reconciliation in a focused documentation commit and synchronized both branch heads using the `moyezr` GitHub account. The checkout remains on `main`; ignored local media and credentials were preserved.
 
 ### F012 — retained idea assistance
 
