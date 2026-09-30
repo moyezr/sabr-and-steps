@@ -181,18 +181,18 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
     state.scripts[0];
   const blocks = useMemo(
     () =>
-      edit?.baseScriptId === selected?.id
+      edit && selected && edit.baseScriptId === selected.id
         ? edit.blocks
         : selected?.blocks || [],
     [edit, selected],
   );
   const title =
-    edit?.baseScriptId === selected?.id
+    edit && selected && edit.baseScriptId === selected.id
       ? edit.title
       : selected?.title || "";
   const blocksKey = JSON.stringify(blocks);
-  const active = state.jobs.some((job) =>
-    ["queued", "running"].includes(job.status),
+  const active = state.jobs.some(
+    (job) => job.kind === "draft" && ["queued", "running"].includes(job.status),
   );
   const promptDirty =
     edition !== initialEdition ||
@@ -550,10 +550,16 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
     state.scripts.find((script) => script.id === comparison.rightId) ||
     state.scripts.find((script) => script.id === comparisonFallback.rightId);
   const comparisonRows = useMemo(
-    () =>
-      comparisonLeft && comparisonRight
-        ? compareScriptBlocks(comparisonLeft.blocks, comparisonRight.blocks)
-        : [],
+    () => {
+      if (
+        !comparisonLeft ||
+        !comparisonRight ||
+        !Array.isArray(comparisonLeft.blocks) ||
+        !Array.isArray(comparisonRight.blocks)
+      )
+        return [];
+      return compareScriptBlocks(comparisonLeft.blocks, comparisonRight.blocks);
+    },
     [comparisonLeft, comparisonRight],
   );
 
