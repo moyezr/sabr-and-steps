@@ -115,3 +115,11 @@ Only the first completed narration selects itself when no voice choice exists. L
 **Implemented in F011, 2026-09-20.** Script undo/redo is a bounded client history of 100 cloned title/block snapshots layered over revision-checked autosave. The history stays in the mounted episode buffer across section navigation and resets on reload; the database working draft remains the recovery boundary. Undo and redo change content only and retain the newest known server revision. A newer conflicting server draft preserves local content and requires explicit recovery.
 
 Comparison reads any two immutable revisions already returned by writing state. Deterministic LCS anchors prevent an insertion from marking every later block as changed; unmatched gaps become changed, added, or removed rows. Comparison excludes the working draft and never changes script selection.
+
+## D022 — Retained idea directions from immutable request snapshots
+
+**F012, 2026-09-30.** Idea assistance snapshots the open idea form, selected request model, instructions, and saved episode revision into a durable job. Each new generation gets a fresh request identity; retrying a stopped operation retains its existing identity. Suggestions are stored independently of the episode brief, selected script, and script working draft. Later edits do not invalidate a completed suggestion: its original input and revision remain visible provenance, and applying a title or direction is an explicit local edit followed by the existing revision-checked save.
+
+Each supported result contains exactly three distinct angle/title/hook/takeaway directions. Malformed, incomplete, mismatched-model, and unsupported outputs are rejected before suggestion persistence. Persisting a result checks the worker's current ownership; unknown provider outcomes require reconciliation rather than blind retry. OpenRouter generation uses the existing account, price, reservation, cache, and reported-cost safeguards, with either permitted model and no automatic fallback. Opening the editor or saving a brief never dispatches inference.
+
+This slice develops an idea without claiming verified source support. Canonical quotations, religious rulings, source insertion, and targeted script rewrites remain outside idea assistance; the latter editor capabilities follow in milestone 3.

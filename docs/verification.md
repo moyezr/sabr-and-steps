@@ -85,6 +85,14 @@ In the browser, edit the title and a reflection, use buttons and Ctrl/Cmd shortc
 
 Latest evidence: [script undo and comparison acceptance](evidence/2026-09-20-script-undo-comparison.md).
 
+## Retained idea assistance acceptance (F012)
+
+Run `pnpm check`, `pnpm test:db`, and `pnpm build`. Deterministic provider parsing must reject incomplete, mismatched, malformed, duplicate, and unsupported directions. Disposable database checks must cover additive migration, exact three-direction storage, fresh generation identities, same-request idempotence, stopped-job retry, uncertain dispatch protection, immutable input/model/revision provenance, worker ownership, and unchanged saved brief, selected script, and working draft.
+
+Use `pnpm exec tsx --conditions=react-server scripts/verify-ideas-workflow.ts --serve` after building for an isolated browser fixture at port 3109. It seeds two suggestion sets from deterministic responses and uses a disposable database. Its `complete`, `fail`, and `uncertain` stdin commands process only queued idea jobs in that fixture through the real worker and an injected generator. No model or speech provider is contacted. `report` shows fixture state; `stop` stops the temporary server and removes only the disposable database.
+
+In the browser, inspect retained sets from both permitted models, change the next-request model, and request another set. Edit the open brief while its job runs, use the fixture's `complete` command, and verify the edit remains intact while a separate result appears. Explicitly apply a title or direction; verify a dirty state, then save/reload and check exact persistence. Retry a stopped fixture job and confirm its identity remains unchanged; uncertain results must explain reconciliation without offering retry. Verify navigation preserves local editing, saved sets survive reload, errors stay visible, keyboard controls work, and the editor fits 390 × 844.
+
 ## Source browser acceptance
 
 Run `pnpm check`, `pnpm test:db`, and `pnpm build`. Source unit fixtures cover formatting, invalid references/editions, auth renewal, and sanitized failures. Disposable database checks cover failed-chapter recovery, atomic checkpoints, concurrent import exclusion, refreshed-content deduplication, preserved prior versions, search/context, and migration constraints. Fixtures are synthetic and are not live-provider evidence.

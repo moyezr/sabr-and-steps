@@ -654,6 +654,190 @@ h1 em {
 .studio-textarea::placeholder {
   color: #a1a795;
 }
+.idea-assistance {
+  display: grid;
+  gap: 17px;
+  padding: 20px;
+  border: 1px solid #dce4d2;
+  border-radius: 8px;
+  background: #f7f9f2;
+}
+.idea-assistance-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  color: #668058;
+}
+.idea-assistance-heading h3 {
+  margin: 5px 0 4px;
+  color: #3f5139;
+  font-family: var(--font-display), serif;
+  font-size: 22px;
+  font-weight: 500;
+}
+.idea-assistance-heading p,
+.idea-generation-note {
+  margin: 0;
+  color: #7b8673;
+  font-size: 10px;
+  line-height: 1.65;
+}
+.idea-instructions {
+  display: grid;
+  gap: 8px;
+  color: #596a53;
+  font-size: 11px;
+  font-weight: 500;
+}
+.idea-instructions textarea {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  padding: 11px;
+  border: 1px solid #d9e1cf;
+  border-radius: 5px;
+  background: #fff;
+  color: #465740;
+  font: inherit;
+  font-weight: 400;
+  line-height: 1.6;
+}
+.idea-generation-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+.idea-generation-actions .primary-action {
+  min-height: 42px;
+}
+.idea-notice,
+.idea-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 5px;
+  font-size: 10px;
+  line-height: 1.55;
+}
+.idea-notice {
+  background: #eaf2e4;
+  color: #547044;
+}
+.idea-error {
+  background: #fff0e9;
+  color: #95472f;
+}
+.idea-jobs:empty {
+  display: none;
+}
+.idea-jobs,
+.idea-suggestion-history {
+  display: grid;
+  gap: 10px;
+}
+.idea-job {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid #dce4d2;
+  border-radius: 5px;
+  background: #fff;
+  font-size: 10px;
+}
+.idea-job > div {
+  display: grid;
+  gap: 3px;
+}
+.idea-job strong {
+  color: #4f6843;
+  text-transform: capitalize;
+}
+.idea-job span {
+  color: #7c8774;
+}
+.idea-job.is-failed,
+.idea-job.is-needs_attention {
+  border-color: #ebcbbd;
+}
+.idea-suggestion-history > h4 {
+  margin: 4px 0 0;
+  color: #4a5c43;
+  font-size: 12px;
+}
+.idea-suggestion-set {
+  display: grid;
+  gap: 12px;
+  padding-top: 13px;
+  border-top: 1px solid #dce4d2;
+}
+.idea-suggestion-set > header {
+  display: grid;
+  gap: 3px;
+}
+.idea-suggestion-set > header strong {
+  color: #4d6542;
+  font-size: 11px;
+}
+.idea-suggestion-set > header span,
+.idea-suggestion-set > header small {
+  color: #85907d;
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+.idea-direction-grid {
+  display: grid;
+  gap: 10px;
+}
+.idea-direction-card {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid #dfe5d7;
+  border-radius: 6px;
+  background: #fff;
+}
+.idea-direction-card h5 {
+  margin: 6px 0 12px;
+  color: #405238;
+  font-family: var(--font-display), serif;
+  font-size: 18px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.idea-direction-card dl,
+.idea-direction-card dl div {
+  display: grid;
+  gap: 4px;
+}
+.idea-direction-card dl {
+  margin: 0;
+  gap: 10px;
+}
+.idea-direction-card dt {
+  color: #718165;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+.idea-direction-card dd {
+  margin: 0;
+  color: #626f5c;
+  font-size: 10px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.idea-direction-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.idea-direction-actions .button {
+  min-height: 40px;
+}
 .editor-main [data-slot="label"],
 .editor-main .label,
 .select-field,
@@ -1364,6 +1548,24 @@ h1 em {
   }
   .editor-main {
     padding: 22px 19px;
+  }
+  .idea-assistance {
+    padding: 17px 14px;
+  }
+  .idea-generation-actions {
+    grid-template-columns: 1fr;
+  }
+  .idea-generation-actions .primary-action,
+  .idea-direction-actions .button {
+    width: 100%;
+  }
+  .idea-direction-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .idea-job {
+    align-items: flex-start;
+    flex-direction: column;
   }
   .editor-heading h1 {
     font-size: 39px;

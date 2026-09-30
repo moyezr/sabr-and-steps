@@ -170,6 +170,48 @@ export const jobs = pgTable(
   ],
 );
 
+export const ideaSuggestionSets = pgTable(
+  "idea_suggestion_sets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    episodeId: uuid("episode_id")
+      .notNull()
+      .references(() => episodes.id),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id)
+      .unique(),
+    episodeRevision: integer("episode_revision").notNull(),
+    model: text("model").$type<EpisodeInput["llmModel"]>().notNull(),
+    instructions: text("instructions").notNull().default(""),
+    inputSnapshot: jsonb("input_snapshot").notNull(),
+    suggestions: jsonb("suggestions").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check("idea_suggestion_episode_revision", sql`${t.episodeRevision} > 0`),
+    check(
+      "idea_suggestion_model",
+      sql`${t.model} IN ('openai/gpt-5.6-luna', 'google/gemini-3.8-flash')`,
+    ),
+    check(
+      "idea_suggestion_instructions_length",
+      sql`char_length(${t.instructions}) <= 2000`,
+    ),
+    check(
+      "idea_suggestion_input_snapshot",
+      sql`jsonb_typeof(${t.inputSnapshot}) = 'object'`,
+    ),
+    check(
+      "idea_suggestion_results",
+      sql`CASE WHEN jsonb_typeof(${t.suggestions}) = 'array' THEN jsonb_array_length(${t.suggestions}) = 3 ELSE false END`,
+    ),
+    index("idea_suggestion_episode_created").on(t.episodeId, t.createdAt),
+  ],
+);
+
 export const providerUsage = pgTable(
   "provider_usage",
   {

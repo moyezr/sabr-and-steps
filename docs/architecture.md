@@ -35,7 +35,7 @@ The mounted episode workspace keeps a bounded client-only script undo/redo stack
 
 ## Data design
 
-Implemented entities: Episode, EpisodeWorkspaceState, EpisodeScriptDraft, SourceImport, SourcePassage, EmbeddingIndex, PassageEmbedding, QueryEmbedding, ScriptRevision, Job, ProviderUsage, VoiceTake, CaptionTrack, Composition, and VideoExport. Review state currently exists on script/media records; full final-review workflow remains pending. See [source import details](sources.md).
+Implemented entities: Episode, EpisodeWorkspaceState, EpisodeScriptDraft, SourceImport, SourcePassage, EmbeddingIndex, PassageEmbedding, QueryEmbedding, ScriptRevision, IdeaSuggestionSet, Job, ProviderUsage, VoiceTake, CaptionTrack, Composition, and VideoExport. Review state currently exists on script/media records; full final-review workflow remains pending. See [source import details](sources.md).
 
 - Editions carry publisher/translator, resource ID, URL, import date, rights notes, and version/checksum. Passages retain canonical references and text.
 - Embeddings reference a source version and model, dimensions, and preprocessing revision. A model/configuration change creates a new index generation; never mix incompatible vector spaces.
@@ -45,6 +45,8 @@ Implemented entities: Episode, EpisodeWorkspaceState, EpisodeScriptDraft, Source
 - Reviews/renders reference immutable composition revisions so edits cannot silently alter an approved export.
 
 Use Drizzle for relational/vector queries, parameterized SQL for PostgreSQL-specific behavior, and migrations to enable pgvector. Combine full-text ranking with vector retrieval and return source context. Similarity is not an authenticity score.
+
+Idea assistance stores exactly three validated directions in an immutable `IdeaSuggestionSet` tied to its unique durable job. Requests snapshot the open idea fields, model, instructions, and saved episode revision; each new request has a fresh identity. Later episode edits preserve the result's original provenance. Applying a suggestion changes only the local idea form until its explicit revision-checked save. Final insertion locks/checks the current worker job lease and owner; ambiguous dispatch is not blindly retried.
 
 ## Worker and recovery
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -29,6 +29,7 @@ import {
   type Episode,
   type EpisodeInput,
 } from "@/lib/domain/episode";
+import type { IdeaDirection as DomainIdeaDirection } from "@/lib/domain/ideas";
 import {
   useEpisodeWorkspace,
   useWorkspaceBuffer,
@@ -43,13 +44,48 @@ const themeLabels = {
   trust: "Trust in Allah",
 };
 
+export type IdeaDirection = DomainIdeaDirection;
+
+export type IdeaSuggestionSet = {
+  id: string;
+  episodeRevision: number;
+  model: EpisodeInput["llmModel"];
+  instructions: string;
+  input: Pick<EpisodeInput, "title" | "brief" | "theme" | "targetSeconds">;
+  directions: IdeaDirection[];
+  createdAt: string;
+};
+
+export type IdeaAssistanceJob = {
+  id: string;
+  kind: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "needs_attention";
+  progress: string;
+  error: string | null;
+};
+
+export type IdeaAssistanceState = {
+  suggestions: IdeaSuggestionSet[];
+  jobs: IdeaAssistanceJob[];
+};
+
+export type EpisodeEditorProps = {
+  episode?: Episode;
+  initial?: Partial<EpisodeInput>;
+  ideaAssistance?: IdeaAssistanceState;
+  ideaAssistanceUnavailable?: boolean;
+};
+
+function modelLabel(model: EpisodeInput["llmModel"]) {
+  return model.startsWith("openai") ? "GPT-5.6 Luna" : "Gemini 3.8 Flash";
+}
+
 export function EpisodeEditor({
   episode,
   initial,
-}: {
-  episode?: Episode;
-  initial?: Partial<EpisodeInput>;
-}) {
+  ideaAssistance,
+  ideaAssistanceUnavailable,
+}: EpisodeEditorProps) {
   const router = useRouter();
   const { refreshWorkspace } = useEpisodeWorkspace();
   const [draft, setDraft, clearDraft] = useWorkspaceBuffer<{
@@ -62,6 +98,29 @@ export function EpisodeEditor({
     revision: episode?.revision ?? 0,
   });
   const { values, saved, revision } = draft;
+  const [assistanceDraft, setAssistanceDraft] = useWorkspaceBuffer<{
+    instructions: string;
+    model: EpisodeInput["llmModel"];
+  }>(`idea-assistance:${episode?.id || "new"}`, {
+    instructions: "",
+    model: episode?.llmModel ?? EMPTY_EPISODE.llmModel,
+  });
+  const [ideaStateOverride, setIdeaStateOverride] = useState<{
+    sourceKey: string | undefined;
+    value: IdeaAssistanceState;
+  } | null>(null);
+  const ideaAssistanceKey = JSON.stringify({
+    state: ideaAssistance,
+    unavailable: ideaAssistanceUnavailable,
+  });
+  const ideaState =
+    ideaStateOverride && ideaStateOverride.sourceKey === ideaAssistanceKey
+      ? ideaStateOverride.value
+      : ideaAssistance;
+  const [ideaBusy, setIdeaBusy] = useState(false);
+  const [ideaError, setIdeaError] = useState("");
+  const [ideaPollError, setIdeaPollError] = useState("");
+  const [ideaNotice, setIdeaNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -69,6 +128,87 @@ export function EpisodeEditor({
   const submitting = useRef(false);
   const dirty = JSON.stringify(values) !== JSON.stringify(saved);
   useWorkspaceDraft({ dirty, saving: busy });
+
+  const showIdeaState = useCallback(
+    (value: IdeaAssistanceState) => {
+      setIdeaStateOverride({ sourceKey: ideaAssistanceKey, value });
+    },
+    [ideaAssistanceKey],
+  );
+
+  const refreshIdeas = useCallback(async () => {
+    if (!episode || !ideaAssistance) return;
+    const response = await fetch(`/api/episodes/${episode.id}/ideas`);
+    if (!response.ok) throw new Error("Could not refresh idea suggestions.");
+    const next = (await response.json()) as IdeaAssistanceState;
+    showIdeaState(next);
+    setIdeaPollError("");
+    return next;
+  }, [episode, ideaAssistance, showIdeaState]);
+
+  const ideaActive = Boolean(
+    ideaState?.jobs.some((job) =>
+      ["queued", "running"].includes(job.status),
+    ),
+  );
+  const ideaEpisodeId = episode?.id;
+
+  useEffect(() => {
+    if (!ideaEpisodeId || !ideaAssistance || ideaAssistanceUnavailable) return;
+    const episodeId = ideaEpisodeId;
+    let stopped = false;
+    const controller = new AbortController();
+    let timer: number | undefined;
+    let shouldContinuePolling = ideaActive;
+    async function refreshAndPoll() {
+      try {
+        const response = await fetch(`/api/episodes/${episodeId}/ideas`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("Could not refresh idea suggestions.");
+        const next = (await response.json()) as IdeaAssistanceState;
+        if (stopped) return;
+        showIdeaState(next);
+        setIdeaPollError("");
+        shouldContinuePolling = next.jobs.some((job) =>
+          ["queued", "running"].includes(job.status),
+        );
+      } catch {
+        if (stopped || controller.signal.aborted) return;
+        setIdeaPollError(
+          "Could not check idea assistance progress. Retrying automatically.",
+        );
+        shouldContinuePolling = true;
+      }
+      if (!stopped && shouldContinuePolling) {
+        timer = window.setTimeout(() => void refreshAndPoll(), 2000);
+      }
+    }
+    void refreshAndPoll();
+    return () => {
+      stopped = true;
+      controller.abort();
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [
+    ideaEpisodeId,
+    ideaActive,
+    ideaAssistance,
+    ideaAssistanceUnavailable,
+    showIdeaState,
+  ]);
+
+  const visibleIdeaJobs = (() => {
+    if (!ideaState) return [];
+    const importantJobs = ideaState.jobs.filter((job) =>
+      ["queued", "running", "needs_attention", "failed"].includes(job.status),
+    );
+    const included = new Set(importantJobs.map((job) => job.id));
+    return [
+      ...importantJobs,
+      ...ideaState.jobs.filter((job) => !included.has(job.id)).slice(0, 3),
+    ];
+  })();
 
   function change<K extends keyof EpisodeInput>(
     key: K,
@@ -79,6 +219,52 @@ export function EpisodeEditor({
       values: { ...current.values, [key]: value },
     }));
     setNotice("");
+  }
+
+  async function ideaRequest(
+    action: "generate" | "retry",
+    data: Record<string, unknown>,
+  ) {
+    if (!episode || !ideaAssistance || ideaAssistanceUnavailable) return;
+    setIdeaBusy(true);
+    setIdeaError("");
+    setIdeaPollError("");
+    setIdeaNotice("");
+    try {
+      const response = await fetch(`/api/episodes/${episode.id}/ideas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, data }),
+      });
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error || "Could not start idea assistance.");
+      if (Array.isArray(result.suggestions) && Array.isArray(result.jobs))
+        showIdeaState(result as IdeaAssistanceState);
+      else await refreshIdeas();
+    } catch (caught) {
+      setIdeaError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not reach idea assistance.",
+      );
+    } finally {
+      setIdeaBusy(false);
+    }
+  }
+
+  function applyDirectionToBrief(direction: IdeaDirection) {
+    change(
+      "brief",
+      [
+        `Angle: ${direction.angle}`,
+        `Hook: ${direction.hook}`,
+        `Practical takeaway: ${direction.takeaway}`,
+      ]
+        .join("\n\n")
+        .slice(0, 5000),
+    );
+    setIdeaNotice("Direction applied to the local brief. Save when it feels right.");
   }
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
@@ -209,6 +395,206 @@ export function EpisodeEditor({
               Your audience, their struggle, and one practical takeaway.
             </Description>
           </TextField>
+          {episode &&
+            (ideaAssistance || ideaAssistanceUnavailable) &&
+            ideaState && (
+            <section className="idea-assistance" aria-labelledby="idea-assistance-title">
+              <div className="idea-assistance-heading">
+                <div>
+                  <span className="eyebrow">OPTIONAL AI ASSISTANCE</span>
+                  <h3 id="idea-assistance-title">Develop this idea</h3>
+                  <p>
+                    Ask for a few directions, then choose what belongs in your
+                    brief. Suggestions never replace your work automatically.
+                  </p>
+                </div>
+                <Sparkles size={19} aria-hidden="true" />
+              </div>
+              <label className="idea-instructions">
+                Direction for the next suggestions
+                <textarea
+                  value={assistanceDraft.instructions}
+                  maxLength={2000}
+                  placeholder="For example: more reassuring, less formal, focus on patience."
+                  onChange={(event) =>
+                    setAssistanceDraft((current) => ({
+                      ...current,
+                      instructions: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <div className="idea-generation-actions">
+                <label className="select-field">
+                  Model for this request
+                  <select
+                    value={assistanceDraft.model}
+                    onChange={(event) =>
+                      setAssistanceDraft((current) => ({
+                        ...current,
+                        model: event.target.value as EpisodeInput["llmModel"],
+                      }))
+                    }
+                  >
+                    {LLM_MODELS.map((model) => (
+                      <option value={model} key={model}>
+                        {modelLabel(model)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="button primary-action"
+                  disabled={
+                    ideaBusy ||
+                    ideaActive ||
+                    !values.brief.trim() ||
+                    ideaAssistanceUnavailable
+                  }
+                  onClick={() =>
+                    void ideaRequest("generate", {
+                      episodeRevision: revision,
+                      model: assistanceDraft.model,
+                      instructions: assistanceDraft.instructions,
+                      input: {
+                        title: values.title,
+                        brief: values.brief,
+                        theme: values.theme,
+                        targetSeconds: values.targetSeconds,
+                      },
+                    })
+                  }
+                >
+                  <Sparkles size={15} aria-hidden="true" />
+                  {ideaActive
+                    ? "Thinking…"
+                    : ideaState.suggestions.length
+                      ? "Suggest another"
+                      : "Suggest directions"}
+                </button>
+              </div>
+              <p className="idea-generation-note">
+                Uses the open brief above as a snapshot. You can keep editing
+                while the durable job runs.
+              </p>
+              {ideaAssistanceUnavailable && (
+                <p className="idea-error" role="status">
+                  Idea assistance is temporarily unavailable. Reload this page
+                  to check again; your brief remains available to edit.
+                </p>
+              )}
+              {(ideaNotice || ideaError || ideaPollError) && (
+                <p
+                  className={ideaError || ideaPollError ? "idea-error" : "idea-notice"}
+                  role={ideaError ? "alert" : "status"}
+                >
+                  {ideaError || ideaPollError || ideaNotice}
+                </p>
+              )}
+              <div className="idea-jobs" aria-live="polite" aria-busy={ideaActive}>
+                {visibleIdeaJobs.map((job) => (
+                  <div key={job.id} className={`idea-job is-${job.status}`}>
+                    <div>
+                      <strong>
+                        {job.status === "needs_attention"
+                          ? "Needs attention"
+                          : `${job.status.slice(0, 1).toUpperCase()}${job.status.slice(1)}`}
+                      </strong>
+                      <span>
+                        {job.progress ||
+                          (job.status === "needs_attention"
+                            ? "This request needs attention before it can continue."
+                            : "")}
+                      </span>
+                      {job.error && <span>{job.error.replaceAll("_", " ")}</span>}
+                    </div>
+                    {job.status === "failed" && job.kind === "idea_suggestion" && (
+                      <button
+                        type="button"
+                        className="text-link"
+                        disabled={ideaBusy || ideaAssistanceUnavailable}
+                        onClick={() =>
+                          void ideaRequest("retry", { jobId: job.id })
+                        }
+                      >
+                        Retry stopped job
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {ideaState.suggestions.length > 0 && (
+                <div className="idea-suggestion-history">
+                  <h4>Saved directions</h4>
+                  {ideaState.suggestions.map((set) => (
+                    <section className="idea-suggestion-set" key={set.id}>
+                      <header>
+                        <strong>{modelLabel(set.model)}</strong>
+                        <span>
+                          Based on revision {set.episodeRevision} ·{" "}
+                          <time dateTime={set.createdAt}>
+                            {new Date(set.createdAt).toLocaleString()}
+                          </time>
+                        </span>
+                        <small>
+                          {set.instructions || "No extra direction"}
+                        </small>
+                      </header>
+                      <div className="idea-direction-grid">
+                        {set.directions.map((direction, index) => (
+                          <article
+                            className="idea-direction-card"
+                            key={`${set.id}:${index}`}
+                          >
+                            <span className="eyebrow">DIRECTION {index + 1}</span>
+                            <h5>{direction.title}</h5>
+                            <dl>
+                              <div>
+                                <dt>Angle</dt>
+                                <dd>{direction.angle}</dd>
+                              </div>
+                              <div>
+                                <dt>Hook</dt>
+                                <dd>{direction.hook}</dd>
+                              </div>
+                              <div>
+                                <dt>Practical takeaway</dt>
+                                <dd>{direction.takeaway}</dd>
+                              </div>
+                            </dl>
+                            <div className="idea-direction-actions">
+                              <button
+                                type="button"
+                                className="button"
+                                disabled={busy}
+                                onClick={() => {
+                                  change("title", direction.title.slice(0, 140));
+                                  setIdeaNotice(
+                                    "Title applied locally. Save when it feels right.",
+                                  );
+                                }}
+                              >
+                                Use title
+                              </button>
+                              <button
+                                type="button"
+                                className="button"
+                                disabled={busy}
+                                onClick={() => applyDirectionToBrief(direction)}
+                              >
+                                Use as brief
+                              </button>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
           <div className="field-row">
             <label className="select-field">
               Theme
@@ -291,9 +677,7 @@ export function EpisodeEditor({
               >
                 {LLM_MODELS.map((model) => (
                   <option value={model} key={model}>
-                    {model.startsWith("openai")
-                      ? "GPT-5.6 Luna"
-                      : "Gemini 3.8 Flash"}
+                    {modelLabel(model)}
                   </option>
                 ))}
               </select>

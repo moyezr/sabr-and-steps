@@ -245,7 +245,7 @@
       "area": "ideas",
       "title": "Develop a feeling into retained idea directions",
       "user_visible_behavior": "The creator can describe a vague feeling or scenario, ask either permitted model for several Islamic video directions, keep earlier suggestions, and explicitly use a title, hook, angle, or takeaway without silently replacing the saved brief or script.",
-      "status": "in_progress",
+      "status": "passing",
       "verification": [
         "Persist multiple idea suggestion sets with model, instructions, input episode revision, and creation time; retain earlier results when the model changes or another request completes.",
         "Generate a fresh deterministic alternative for each new request while retries keep the same durable job; never replace the saved episode brief, selected script, or working draft automatically.",
@@ -254,8 +254,10 @@
         "Finish a suggestion while the creator edits the idea and verify the local edit remains intact and the suggestion appears separately with clear model provenance.",
         "Run pnpm check, pnpm test:db, pnpm build, and desktop/mobile browser acceptance with deterministic provider fixtures; label any live model call separately."
       ],
-      "evidence": [],
-      "notes": "PLAN.md milestone 3A. This slice adds retained idea assistance before targeted script rewrites and source insertion."
+      "evidence": [
+        "2026-09-30: Retained idea directions, immutable input/model/revision snapshots, explicit local adoption, safe same-job retries, and owner-checked durable persistence passed deterministic unit/database/browser acceptance. pnpm check (38 unit tests), all five pnpm test:db suites, production build, Drizzle metadata check and git diff --check passed. See docs/evidence/2026-09-30-idea-assistance.md. No live inference was used."
+      ],
+      "notes": "Completed PLAN.md milestone 3A. Each generation retains three validated directions separately from the saved brief and selected script. Browser checks cover edits during generation, model history, explicit adoption/save/reload, same-job retry, uncertain results, navigation, and mobile layout. Script blocks/source insertion and targeted rewrites are next; a live F012 model check remains unperformed."
     }
   ]
 }

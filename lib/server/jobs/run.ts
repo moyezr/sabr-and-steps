@@ -9,8 +9,10 @@ import { createDraft } from "../writing/drafts";
 import { buildIndex, retrieve } from "../writing/retrieval";
 import { ProviderError } from "../providers/openrouter";
 import { writeArtifact } from "./files";
+import { createIdeaSuggestions } from "../ideas/suggestions";
 export async function handleJob(job: Job): Promise<Record<string, unknown>> {
   if (job.kind === "draft") return createDraft(job);
+  if (job.kind === "idea_suggestion") return createIdeaSuggestions(job);
   if (job.kind === "narration") {
     const { createNarration } = await import("../media/narration");
     return createNarration(job);

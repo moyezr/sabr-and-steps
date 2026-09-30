@@ -84,6 +84,105 @@ test("fresh database migration, pgvector, persistence, constraints, and revision
       ),
       (error: unknown) => (error as { code?: string }).code === "23514",
     );
+    const suggestionJobIds = Array.from({ length: 9 }, () => randomUUID());
+    for (let index = 0; index < suggestionJobIds.length; index += 1) {
+      const jobId = suggestionJobIds[index];
+      await applicationPool.query(
+        `INSERT INTO jobs (id, episode_id, kind, key, input)
+         VALUES ($1, $2, 'idea_suggestion', $3, '{}'::jsonb)`,
+        [jobId, created.id, `idea-database-fixture-${index}`],
+      );
+    }
+    const inputSnapshot = {
+      title: created.title,
+      brief: created.brief,
+      theme: created.theme,
+      targetSeconds: created.targetSeconds,
+    };
+    const suggestions = [
+      {
+        angle: "A patient next step",
+        title: "One step still matters",
+        hook: "Waiting can feel heavier than moving.",
+        takeaway: "Choose one possible action today.",
+      },
+      {
+        angle: "Care during uncertainty",
+        title: "Held in the waiting",
+        hook: "Uncertainty does not erase your effort.",
+        takeaway: "Name one form of support you can accept.",
+      },
+      {
+        angle: "Hope without a deadline",
+        title: "Hope can be quiet",
+        hook: "Hope does not need to predict an outcome.",
+        takeaway: "Make room for one gentle routine.",
+      },
+    ];
+    const insertSuggestion = (
+      jobId: string,
+      values: {
+        episodeId?: string;
+        episodeRevision?: number;
+        model?: string;
+        instructions?: string;
+        input?: unknown;
+        results?: unknown;
+      } = {},
+    ) =>
+      applicationPool!.query(
+        `INSERT INTO idea_suggestion_sets
+          (episode_id, job_id, episode_revision, model, instructions,
+           input_snapshot, suggestions)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)`,
+        [
+          values.episodeId ?? created.id,
+          jobId,
+          values.episodeRevision ?? created.revision,
+          values.model ?? created.llmModel,
+          values.instructions ?? "More reassuring",
+          JSON.stringify(values.input ?? inputSnapshot),
+          JSON.stringify(values.results ?? suggestions),
+        ],
+      );
+    await insertSuggestion(suggestionJobIds[0]);
+    assert.equal(
+      (
+        await applicationPool.query(
+          "SELECT count(*)::int AS count FROM idea_suggestion_sets WHERE episode_id = $1",
+          [created.id],
+        )
+      ).rows[0].count,
+      1,
+    );
+    await assert.rejects(
+      insertSuggestion(suggestionJobIds[0]),
+      (error: unknown) => (error as { code?: string }).code === "23505",
+    );
+    for (const [jobId, values] of [
+      [suggestionJobIds[1], { episodeRevision: 0 }],
+      [suggestionJobIds[2], { model: "unapproved" }],
+      [suggestionJobIds[3], { instructions: "x".repeat(2001) }],
+      [suggestionJobIds[4], { input: [] }],
+      [suggestionJobIds[5], { results: suggestions.slice(0, 2) }],
+      [
+        suggestionJobIds[7],
+        { results: [...suggestions, { ...suggestions[2], title: "Fourth suggestion" }] },
+      ],
+      [suggestionJobIds[8], { results: "not an array" }],
+    ] as const)
+      await assert.rejects(
+        insertSuggestion(jobId, values),
+        (error: unknown) => (error as { code?: string }).code === "23514",
+      );
+    await assert.rejects(
+      insertSuggestion(suggestionJobIds[6], { episodeId: randomUUID() }),
+      (error: unknown) => (error as { code?: string }).code === "23503",
+    );
+    await assert.rejects(
+      insertSuggestion(randomUUID()),
+      (error: unknown) => (error as { code?: string }).code === "23503",
+    );
   } finally {
     await applicationPool?.end();
     await admin.query(`DROP DATABASE IF EXISTS "${database}" WITH (FORCE)`);
@@ -383,6 +482,42 @@ test("workspace migrations deterministically backfill selections without deletin
         selectedScript,
       ]),
       (error: unknown) => (error as { code?: string }).code === "23514",
+    );
+    const retainedCountsBefore = (
+      await pool.query(`SELECT
+        (SELECT count(*)::int FROM episodes) AS episodes,
+        (SELECT count(*)::int FROM jobs) AS jobs,
+        (SELECT count(*)::int FROM script_revisions) AS script_revisions,
+        (SELECT count(*)::int FROM voice_takes) AS voice_takes,
+        (SELECT count(*)::int FROM caption_tracks) AS caption_tracks,
+        (SELECT count(*)::int FROM compositions) AS compositions,
+        (SELECT count(*)::int FROM video_exports) AS video_exports`)
+    ).rows[0];
+    await pool.query(
+      await readFile(
+        new URL("../../drizzle/0009_mute_sinister_six.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    const retainedCountsAfter = (
+      await pool.query(`SELECT
+        (SELECT count(*)::int FROM episodes) AS episodes,
+        (SELECT count(*)::int FROM jobs) AS jobs,
+        (SELECT count(*)::int FROM script_revisions) AS script_revisions,
+        (SELECT count(*)::int FROM voice_takes) AS voice_takes,
+        (SELECT count(*)::int FROM caption_tracks) AS caption_tracks,
+        (SELECT count(*)::int FROM compositions) AS compositions,
+        (SELECT count(*)::int FROM video_exports) AS video_exports`)
+    ).rows[0];
+    assert.deepEqual(retainedCountsAfter, retainedCountsBefore);
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT count(*)::int AS count FROM idea_suggestion_sets",
+        )
+      ).rows[0].count,
+      0,
+      "The additive migration must not invent suggestion history.",
     );
   } finally {
     await pool?.end();
