@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import nextEnv from "@next/env";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -76,6 +77,7 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
         await db
           .select({ revision: episodeWorkspaceStates.revision })
           .from(episodeWorkspaceStates)
+          .where(eq(episodeWorkspaceStates.episodeId, episode.id))
       )[0].revision;
     const edition = (
       await db
@@ -460,13 +462,15 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
       }),
     ]);
     assert.equal(
-      competingPreviewSelections.filter((result) => result.status === "fulfilled")
-        .length,
+      competingPreviewSelections.filter(
+        (result) => result.status === "fulfilled",
+      ).length,
       1,
     );
     assert.equal(
-      competingPreviewSelections.filter((result) => result.status === "rejected")
-        .length,
+      competingPreviewSelections.filter(
+        (result) => result.status === "rejected",
+      ).length,
       1,
     );
     await selectComposition(episode.id, {
@@ -578,7 +582,10 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
     assert.equal(restored.parentId, script.id);
     assert.equal(restored.changeKind, "restored");
     assert.equal(restored.model, script.model);
-    assert.equal(restored.generationInstructions, script.generationInstructions);
+    assert.equal(
+      restored.generationInstructions,
+      script.generationInstructions,
+    );
     versionState = await scriptVersionState(episode.id);
     assert.equal(versionState.selectedScriptId, restored.id);
     const alternative = (
@@ -611,6 +618,497 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
       revision: disposableDraft.revision,
     });
     assert.equal((await scriptVersionState(episode.id)).workingDraft, null);
+    // Manual starts and structural source edits use only canonical database data.
+    const { startManualDraft } = await import(
+      "../../lib/server/writing/versions"
+    );
+    const { writingState } = await import("../../lib/server/writing/state");
+    const { episodeScriptDrafts } = await import("../../lib/server/db/schema");
+    const manualEpisode = await createEpisode({
+      ...EMPTY_EPISODE,
+      title: "Manual writing fixture",
+    });
+    const manualInput = {
+      importId: edition.id,
+      episodeRevision: manualEpisode.revision,
+      title: "  Creator's draft  ",
+      text: "  An opening reflection.  ",
+    };
+    await assert.rejects(
+      startManualDraft(manualEpisode.id, { ...manualInput, text: "  \n  " }),
+    );
+    await assert.rejects(
+      startManualDraft(manualEpisode.id, { ...manualInput, title: "  " }),
+    );
+    await assert.rejects(
+      startManualDraft(manualEpisode.id, {
+        ...manualInput,
+        text: "a".repeat(2201),
+      }),
+    );
+    await assert.rejects(
+      startManualDraft(manualEpisode.id, {
+        ...manualInput,
+        episodeRevision: manualEpisode.revision + 1,
+      }),
+      /EPISODE_REVISION_CHANGED/,
+    );
+    await assert.rejects(
+      startManualDraft(manualEpisode.id, {
+        ...manualInput,
+        importId: randomUUID(),
+      }),
+      /SOURCE_IMPORT_NOT_COMPLETE/,
+    );
+    const incompleteEdition = (
+      await db
+        .insert(sourceImports)
+        .values({ ...edition, id: randomUUID(), status: "running" })
+        .returning()
+    )[0];
+    await assert.rejects(
+      startManualDraft(manualEpisode.id, {
+        ...manualInput,
+        importId: incompleteEdition.id,
+      }),
+      /SOURCE_IMPORT_NOT_COMPLETE/,
+    );
+    assert.equal((await listDrafts(manualEpisode.id)).length, 0);
+    const beforeStart = (
+      await pool.query(
+        "SELECT (SELECT count(*) FROM jobs) AS jobs, (SELECT count(*) FROM provider_usage) AS usage",
+      )
+    ).rows[0];
+    const previousFetch = globalThis.fetch;
+    let manualProviderCalls = 0;
+    let competingStarts;
+    globalThis.fetch = async () => {
+      manualProviderCalls++;
+      throw new Error("Manual drafting must not call a provider");
+    };
+    try {
+      competingStarts = await Promise.allSettled([
+        startManualDraft(manualEpisode.id, manualInput),
+        startManualDraft(manualEpisode.id, manualInput),
+      ]);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+    assert.equal(manualProviderCalls, 0);
+    assert.equal(
+      competingStarts.filter((result) => result.status === "fulfilled").length,
+      1,
+    );
+    const refusedStart = competingStarts.find(
+      (result) => result.status === "rejected",
+    );
+    assert(refusedStart?.status === "rejected");
+    assert.match(String(refusedStart.reason), /SCRIPT_ALREADY_EXISTS/);
+    const manual = (await listDrafts(manualEpisode.id))[0];
+    assert.equal(manual.model, "manual");
+    assert.equal(manual.indexId, null);
+    assert.equal(manual.jobId, null);
+    assert.equal(manual.importId, edition.id);
+    assert.equal(manual.label, "Manual draft");
+    assert.equal(manual.changeKind, "checkpoint");
+    assert.equal(manual.title, "Creator's draft");
+    assert.deepEqual(manual.blocks, [
+      { kind: "reflection", text: "An opening reflection." },
+    ]);
+    assert.deepEqual(manual.retrieval, { sources: [] });
+    assert.deepEqual(
+      (
+        await pool.query(
+          "SELECT (SELECT count(*) FROM jobs) AS jobs, (SELECT count(*) FROM provider_usage) AS usage",
+        )
+      ).rows[0],
+      beforeStart,
+    );
+    let manualState = await writingState(manualEpisode.id);
+    assert.equal(manualState.selectedScriptId, manual.id);
+    assert.equal(manualState.workingDraft, null);
+    assert.deepEqual(manualState.workingSources, []);
+    assert.deepEqual(manualState.scripts[0].sources, []);
+    const lateGeneration = (
+      await db
+        .insert(scriptRevisions)
+        .values({
+          episodeId: manualEpisode.id,
+          episodeRevision: manualEpisode.revision,
+          importId: edition.id,
+          indexId: index.id,
+          model: manualEpisode.llmModel,
+          title: "Late generated alternative",
+          blocks: manual.blocks,
+          retrieval: { sources: [] },
+          checksum: "late-generation",
+        })
+        .returning()
+    )[0];
+    await selectFirstScript(manualEpisode.id, lateGeneration.id);
+    assert.equal(
+      (await scriptVersionState(manualEpisode.id)).selectedScriptId,
+      manual.id,
+    );
+    await assert.rejects(
+      startManualDraft(episode.id, manualInput),
+      /SCRIPT_ALREADY_EXISTS/,
+    );
+    const unfinishedEpisode = await createEpisode({
+      ...EMPTY_EPISODE,
+      title: "Existing draft fixture",
+    });
+    await db.insert(episodeScriptDrafts).values({
+      episodeId: unfinishedEpisode.id,
+      title: "Retained work",
+      blocks: [{ kind: "reflection", text: "Preserve this draft." }],
+    });
+    await assert.rejects(
+      startManualDraft(unfinishedEpisode.id, manualInput),
+      /SCRIPT_ALREADY_EXISTS/,
+    );
+    const neighbors = await db
+      .insert(sourcePassages)
+      .values(
+        [2, 3, 4, 5, 6].map((verse) => ({
+          ...source,
+          id: randomUUID(),
+          verse,
+          reference: `1:${verse}`,
+          text: `Synthetic canonical verse ${verse}.`,
+          checksum: `fixture-${verse}`,
+        })),
+      )
+      .returning();
+    const otherEdition = (
+      await db
+        .insert(sourceImports)
+        .values({ ...edition, id: randomUUID(), name: "Other fixture edition" })
+        .returning()
+    )[0];
+    const otherPassage = (
+      await db
+        .insert(sourcePassages)
+        .values({ ...source, id: randomUUID(), importId: otherEdition.id })
+        .returning()
+    )[0];
+    const quote = (passage: typeof source) => ({
+      kind: "quote" as const,
+      sourceId: passage.id,
+      importId: edition.id,
+      reference: passage.reference,
+      text: passage.text,
+      edition: edition.name,
+    });
+    const quoteThree = quote(neighbors.find((passage) => passage.verse === 3)!);
+    const invalidQuotes = [
+      { ...quoteThree, text: "Rewritten canonical words" },
+      { ...quoteThree, edition: "Invented translator" },
+      { ...quoteThree, reference: "1:2" },
+      { ...quoteThree, importId: otherEdition.id },
+      { ...quoteThree, sourceId: randomUUID() },
+      {
+        ...quote(otherPassage),
+        importId: otherEdition.id,
+        edition: otherEdition.name,
+      },
+    ];
+    for (const invalidQuote of invalidQuotes) {
+      await assert.rejects(
+        autosaveWorkingDraft(manualEpisode.id, {
+          baseScriptId: manual.id,
+          revision: 0,
+          title: manual.title,
+          blocks: [invalidQuote],
+        }),
+        /CANONICAL_QUOTATION_CHANGED/,
+      );
+      await assert.rejects(
+        saveDraft(manualEpisode.id, {
+          parentId: manual.id,
+          title: manual.title,
+          blocks: [invalidQuote],
+        }),
+        /CANONICAL_QUOTATION_CHANGED/,
+      );
+    }
+    await assert.rejects(
+      autosaveWorkingDraft(manualEpisode.id, {
+        baseScriptId: manual.id,
+        revision: 0,
+        title: manual.title,
+        blocks: [{ kind: "reflection", text: " \n " }],
+      }),
+    );
+    const reflectionA = {
+      kind: "reflection" as const,
+      text: "First reflection.",
+    };
+    const reflectionB = {
+      kind: "reflection" as const,
+      text: "Another reflection.",
+    };
+    const insertedBlocks = [
+      quoteThree,
+      reflectionA,
+      quote(source),
+      reflectionB,
+    ];
+    await autosaveWorkingDraft(manualEpisode.id, {
+      baseScriptId: manual.id,
+      revision: 0,
+      title: "Structured manual draft",
+      blocks: insertedBlocks,
+    });
+    manualState = await writingState(manualEpisode.id);
+    assert.deepEqual(manualState.workingDraft?.blocks, insertedBlocks);
+    assert.deepEqual(
+      manualState.workingSources.map((item) => item.reference),
+      ["1:3", "1:1"],
+    );
+    assert.deepEqual(
+      manualState.workingSources[0].context.map((item) => item.reference),
+      ["1:1", "1:2", "1:3", "1:4", "1:5"],
+    );
+    assert.deepEqual(
+      manualState.workingSources[1].context.map((item) => item.reference),
+      ["1:1", "1:2", "1:3"],
+    );
+    const reorderedBlocks = [
+      reflectionB,
+      quote(neighbors.find((passage) => passage.verse === 4)!),
+      reflectionA,
+    ];
+    await autosaveWorkingDraft(manualEpisode.id, {
+      baseScriptId: manual.id,
+      revision: 1,
+      title: "Reordered draft",
+      blocks: reorderedBlocks,
+    });
+    manualState = await writingState(manualEpisode.id);
+    assert.deepEqual(manualState.workingDraft?.blocks, reorderedBlocks);
+    assert.deepEqual(
+      manualState.workingSources.map((item) => item.reference),
+      ["1:4"],
+    );
+    assert.deepEqual(
+      manualState.workingSources[0].context.map((item) => item.reference),
+      ["1:2", "1:3", "1:4", "1:5", "1:6"],
+    );
+    await assert.rejects(
+      autosaveWorkingDraft(manualEpisode.id, {
+        baseScriptId: manual.id,
+        revision: 1,
+        title: "Stale local structure",
+        blocks: insertedBlocks,
+      }),
+      /SCRIPT_DRAFT_CONFLICT/,
+    );
+    const checkpointInput = {
+      revision: 2,
+      selectionRevision: manualState.selectionRevision,
+      label: "Sources and structure",
+    };
+    await assert.rejects(
+      checkpointWorkingDraft(manualEpisode.id, {
+        ...checkpointInput,
+        revision: 1,
+      }),
+      /SCRIPT_DRAFT_CONFLICT/,
+    );
+    await assert.rejects(
+      checkpointWorkingDraft(manualEpisode.id, {
+        ...checkpointInput,
+        selectionRevision: manualState.selectionRevision + 1,
+      }),
+      /SCRIPT_SELECTION_CONFLICT/,
+    );
+    await db
+      .update(episodeScriptDrafts)
+      .set({ blocks: [invalidQuotes[0]] })
+      .where(eq(episodeScriptDrafts.episodeId, manualEpisode.id));
+    await assert.rejects(
+      checkpointWorkingDraft(manualEpisode.id, checkpointInput),
+      /CANONICAL_QUOTATION_CHANGED/,
+    );
+    await db
+      .update(episodeScriptDrafts)
+      .set({ blocks: reorderedBlocks })
+      .where(eq(episodeScriptDrafts.episodeId, manualEpisode.id));
+    const structured = await checkpointWorkingDraft(
+      manualEpisode.id,
+      checkpointInput,
+    );
+    assert.equal(structured.indexId, null);
+    assert.equal(structured.model, "manual");
+    assert.deepEqual(structured.blocks, reorderedBlocks);
+    assert.deepEqual(structured.retrieval, {
+      sources: manualState.workingSources,
+    });
+    manualState = await writingState(manualEpisode.id);
+    assert.equal(manualState.workingDraft, null);
+    assert.deepEqual(
+      manualState.scripts
+        .find((item) => item.id === structured.id)
+        ?.sources.map((item) => item.reference),
+      ["1:4"],
+    );
+    assert.deepEqual(
+      manualState.scripts.find((item) => item.id === manual.id)?.sources,
+      [],
+    );
+    const reflectionsOnly = await saveDraft(manualEpisode.id, {
+      parentId: structured.id,
+      title: "Reflections only",
+      blocks: [reflectionB],
+    });
+    assert.deepEqual(reflectionsOnly.retrieval, { sources: [] });
+    assert.deepEqual(
+      (await writingState(manualEpisode.id)).scripts.find(
+        (item) => item.id === reflectionsOnly.id,
+      )?.sources,
+      [],
+    );
+    assert.deepEqual(
+      (await listDrafts(manualEpisode.id)).find(
+        (item) => item.id === structured.id,
+      )?.retrieval,
+      structured.retrieval,
+    );
+    // The request boundary supports every schema-valid block, including JSON
+    // escape expansion, while keeping other actions' default body limit intact.
+    const { POST: writingPost } = await import(
+      "../../app/api/episodes/[id]/writing/route"
+    );
+    const { readJson } = await import("../../lib/server/http");
+    const requestHeaders = {
+      "content-type": "application/json",
+      origin: "http://localhost:3109",
+      host: "localhost:3109",
+    };
+    const fullReflection = `x${"\u0001".repeat(2198)}x`;
+    assert.equal(fullReflection.length, 2200);
+    const maximumBlocks = Array.from({ length: 30 }, () => ({
+      kind: "reflection" as const,
+      text: fullReflection,
+    }));
+    const fullPayload = JSON.stringify({
+      action: "autosave",
+      data: {
+        baseScriptId: reflectionsOnly.id,
+        revision: 0,
+        title: "Thirty complete reflections",
+        blocks: maximumBlocks,
+      },
+    });
+    assert(fullPayload.length > 66_000);
+    assert(fullPayload.length < 512_000);
+    const writingRequest = (body: string) =>
+      new Request(
+        `http://localhost:3109/api/episodes/${manualEpisode.id}/writing`,
+        {
+          method: "POST",
+          headers: requestHeaders,
+          body,
+        },
+      );
+    await assert.rejects(readJson(writingRequest(fullPayload)), /INVALID_BODY/);
+    const fullResult = await writingPost(writingRequest(fullPayload), {
+      params: Promise.resolve({ id: manualEpisode.id }),
+    });
+    assert.equal(fullResult.status, 200);
+    const fullState = await fullResult.json();
+    assert.equal(fullState.workingDraft.revision, 1);
+    assert.deepEqual(fullState.workingDraft.blocks, maximumBlocks);
+    assert.deepEqual(
+      (await scriptVersionState(manualEpisode.id)).workingDraft?.blocks,
+      maximumBlocks,
+    );
+    const tooLarge = JSON.stringify({
+      action: "autosave",
+      data: { privateMarker: "private-fixture".repeat(40_000) },
+    });
+    assert(tooLarge.length > 512_000);
+    const largeResult = await writingPost(writingRequest(tooLarge), {
+      params: Promise.resolve({ id: manualEpisode.id }),
+    });
+    assert.equal(largeResult.status, 422);
+    assert.deepEqual(await largeResult.json(), { error: "INVALID_BODY" });
+    const malformedResult = await writingPost(
+      writingRequest('{"private-fixture"'),
+      {
+        params: Promise.resolve({ id: manualEpisode.id }),
+      },
+    );
+    assert.equal(malformedResult.status, 422);
+    assert.deepEqual(await malformedResult.json(), { error: "INVALID_BODY" });
+    assert.equal(
+      (await scriptVersionState(manualEpisode.id)).workingDraft?.revision,
+      1,
+    );
+    await discardWorkingDraft(manualEpisode.id, { revision: 1 });
+    // A checkpoint holds the workspace before inserting a script with an
+    // episode foreign key. First-draft serialization must allow that KEY SHARE
+    // check while waiting for the workspace, without an inverted-lock deadlock.
+    for (const action of ["select-first", "start-manual"] as const) {
+      const checkpointConnection = await pool.connect();
+      let pendingAction: Promise<unknown> | undefined;
+      try {
+        await checkpointConnection.query("BEGIN");
+        await checkpointConnection.query(
+          "SET LOCAL statement_timeout = '1500ms'",
+        );
+        await checkpointConnection.query(
+          "SELECT episode_id FROM episode_workspace_states WHERE episode_id=$1 FOR UPDATE",
+          [manualEpisode.id],
+        );
+        pendingAction = (
+          action === "select-first"
+            ? selectFirstScript(manualEpisode.id, lateGeneration.id)
+            : startManualDraft(manualEpisode.id, manualInput)
+        ).then(
+          () => ({ ok: true }),
+          (error: unknown) => ({ ok: false, error: String(error) }),
+        );
+        let waitingForWorkspace = false;
+        for (let attempt = 0; attempt < 100; attempt++) {
+          const waiting = await pool.query(
+            "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%episode_workspace_states%' AND query NOT LIKE '%pg_stat_activity%'",
+          );
+          if (waiting.rows[0].n > 0) {
+            waitingForWorkspace = true;
+            break;
+          }
+          await delay(5);
+        }
+        assert(
+          waitingForWorkspace,
+          "First-draft action must be blocked on the held workspace",
+        );
+        await checkpointConnection.query(
+          "INSERT INTO script_revisions (episode_id,episode_revision,import_id,model,title,blocks,retrieval,checksum,change_kind) VALUES ($1,1,$2,'manual','Concurrent checkpoint',$3::jsonb,'{\"sources\":[]}'::jsonb,'concurrent-checkpoint','checkpoint')",
+          [manualEpisode.id, edition.id, JSON.stringify([reflectionB])],
+        );
+        // Roll back only this synthetic checkpoint; the concurrent action can
+        // now finish, and the selected creator revision remains intact.
+        await checkpointConnection.query("ROLLBACK");
+        const outcome = await pendingAction;
+        assert.deepEqual(
+          outcome,
+          action === "select-first"
+            ? { ok: true }
+            : { ok: false, error: "Error: SCRIPT_ALREADY_EXISTS" },
+        );
+        assert.equal(
+          (await scriptVersionState(manualEpisode.id)).selectedScriptId,
+          reflectionsOnly.id,
+        );
+      } finally {
+        await checkpointConnection.query("ROLLBACK");
+        checkpointConnection.release();
+        await pendingAction;
+      }
+    }
     // Provider fixtures are deterministic; no network or live-provider evidence.
     const { elevenSpeech } = await import(
       "../../lib/server/providers/elevenlabs"

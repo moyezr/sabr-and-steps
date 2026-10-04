@@ -6,8 +6,6 @@ import {
   episodeScriptDrafts,
   episodeWorkspaceStates,
   scriptRevisions,
-  sourceImports,
-  sourcePassages,
 } from "../db/schema";
 import { type Job, progress } from "../jobs/store";
 import { buildIndex, retrieve } from "./retrieval";
@@ -16,11 +14,11 @@ import {
   resolveDraft,
   scriptBlockSchema,
   scriptEditSchema,
-  validateScriptQuotes,
 } from "../../domain/script";
 import { digest } from "../hash";
 import { z } from "zod";
 import { scriptVersionState, selectFirstScript } from "./versions";
+import { scriptSourceContext, withScriptSources } from "./source-context";
 export const draftJobInput = z.object({
   episodeId: z.string().uuid(),
   episodeRevision: z.number().int(),
@@ -57,38 +55,48 @@ export async function createDraft(job: Job) {
     }),
   );
   const blocks = resolveDraft(draft, sources);
-  const latest = (
-    await db.select().from(episodes).where(eq(episodes.id, episode.id))
-  )[0];
-  if (latest.revision !== input.episodeRevision)
-    throw new Error("EPISODE_REVISION_CHANGED");
-  const inserted = await db
-    .insert(scriptRevisions)
-    .values({
-      episodeId: episode.id,
-      episodeRevision: episode.revision,
-      jobId: job.id,
-      importId: input.importId,
-      indexId,
-      model: episode.llmModel,
-      title: draft.title,
-      blocks,
-      retrieval: { query, sources, reason: draft.reason },
-      checksum: digest({ title: draft.title, blocks }),
-      label: draft.title,
-      changeKind: "generated",
-      generationInstructions: input.generationInstructions,
-    })
-    .onConflictDoNothing()
-    .returning();
-  const result =
-    inserted[0] ||
-    (
-      await db
+  const quotedSources = await scriptSourceContext(db, input.importId, blocks);
+  // Serialize first generation persistence with manual starts; an in-flight AI
+  // result remains an alternative if the creator has already started manually.
+  const result = await db.transaction(async (tx) => {
+    const latest = (
+      await tx
         .select()
-        .from(scriptRevisions)
-        .where(eq(scriptRevisions.jobId, job.id))
+        .from(episodes)
+        .where(eq(episodes.id, episode.id))
+        .for("no key update")
     )[0];
+    if (!latest || latest.revision !== input.episodeRevision)
+      throw new Error("EPISODE_REVISION_CHANGED");
+    const inserted = await tx
+      .insert(scriptRevisions)
+      .values({
+        episodeId: episode.id,
+        episodeRevision: episode.revision,
+        jobId: job.id,
+        importId: input.importId,
+        indexId,
+        model: episode.llmModel,
+        title: draft.title,
+        blocks,
+        retrieval: { query, sources: quotedSources, reason: draft.reason },
+        checksum: digest({ title: draft.title, blocks }),
+        label: draft.title,
+        changeKind: "generated",
+        generationInstructions: input.generationInstructions,
+      })
+      .onConflictDoNothing()
+      .returning();
+    return (
+      inserted[0] ||
+      (
+        await tx
+          .select()
+          .from(scriptRevisions)
+          .where(eq(scriptRevisions.jobId, job.id))
+      )[0]
+    );
+  });
   await selectFirstScript(episode.id, result.id);
   return { scriptId: result.id };
 }
@@ -115,19 +123,11 @@ export async function saveDraft(episodeId: string, raw: unknown) {
         )
     )[0];
     if (!current) throw new Error("SCRIPT_NOT_FOUND");
-    const edition = (
-      await tx
-        .select()
-        .from(sourceImports)
-        .where(eq(sourceImports.id, current.importId))
-    )[0];
-    const sources = (
-      await tx
-        .select()
-        .from(sourcePassages)
-        .where(eq(sourcePassages.importId, current.importId))
-    ).map((p) => ({ ...p, edition: edition.name }));
-    validateScriptQuotes(input.blocks, sources);
+    const sources = await scriptSourceContext(
+      tx,
+      current.importId,
+      input.blocks,
+    );
     const episode = (
       await tx
         .select()
@@ -166,7 +166,7 @@ export async function saveDraft(episodeId: string, raw: unknown) {
           model: current.model,
           title: input.title,
           blocks: input.blocks,
-          retrieval: current.retrieval,
+          retrieval: withScriptSources(current.retrieval, sources),
           checksum: digest({ title: input.title, blocks: input.blocks }),
           label: "Manual edit",
           changeKind: "checkpoint",

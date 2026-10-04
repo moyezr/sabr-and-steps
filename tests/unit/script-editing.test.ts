@@ -40,6 +40,49 @@ test("script edit history preserves quotation data through undo and redo", () =>
   assert.equal(redone.revision, 3);
 });
 
+test("structural edits undo in order while preserving canonical provenance and the newest revision", () => {
+  const opening = reflection("Opening");
+  const closing = reflection("Closing");
+  const insertedQuote: ScriptBlock = {
+    ...quote,
+    sourceId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    reference: "1:2",
+  };
+  const original = { title: "Structure", blocks: [opening, quote, closing] };
+  let history = createScriptEditHistory("script-a", 0, original);
+  const states = [
+    {
+      title: "Structure",
+      blocks: [opening, quote, closing, reflection("New step")],
+    },
+    {
+      title: "Structure",
+      blocks: [quote, opening, closing, reflection("New step")],
+    },
+    {
+      title: "Structure",
+      blocks: [insertedQuote, opening, closing, reflection("New step")],
+    },
+    {
+      title: "Structure",
+      blocks: [insertedQuote, opening, reflection("New step")],
+    },
+  ];
+  for (const state of states) history = recordScriptEdit(history, state);
+  history = syncScriptEditHistory(history, "script-a", 9, states[3]);
+  for (const expected of [states[2], states[1], states[0], original]) {
+    history = undoScriptEdit(history);
+    assert.deepEqual(history.present, expected);
+    assert.equal(history.revision, 9);
+  }
+  for (const expected of states) {
+    history = redoScriptEdit(history);
+    assert.deepEqual(history.present, expected);
+    assert.equal(history.revision, 9);
+  }
+  assert.deepEqual(quote, original.blocks[1]);
+});
+
 test("history is capped at 100 entries and a new edit clears redo", () => {
   let history = createScriptEditHistory("script-a", 1, snapshot("Edit 0"));
   for (let index = 1; index <= 105; index += 1)

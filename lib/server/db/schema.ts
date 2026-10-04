@@ -299,9 +299,7 @@ export const scriptRevisions = pgTable(
     importId: uuid("import_id")
       .notNull()
       .references(() => sourceImports.id),
-    indexId: uuid("index_id")
-      .notNull()
-      .references(() => embeddingIndexes.id),
+    indexId: uuid("index_id").references(() => embeddingIndexes.id),
     model: text("model").notNull(),
     title: text("title").notNull(),
     blocks: jsonb("blocks").notNull(),

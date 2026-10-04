@@ -6,17 +6,8 @@ import { listDrafts } from "./drafts";
 import { listJobs } from "../jobs/store";
 import { scriptBlockSchema } from "../../domain/script";
 import { scriptVersionState } from "./versions";
-const retrievalSchema = z.object({
-  sources: z.array(
-    z.object({
-      id: z.string(),
-      reference: z.string(),
-      text: z.string(),
-      edition: z.string(),
-      context: z.array(z.object({ reference: z.string(), text: z.string() })),
-    }),
-  ),
-});
+import { getDb } from "../db/client";
+import { scriptSourceContext } from "./source-context";
 export async function writingState(episodeId: string) {
   const [episode, editions, scripts, jobs, versions] = await Promise.all([
     findEpisode(episodeId),
@@ -26,9 +17,32 @@ export async function writingState(episodeId: string) {
     scriptVersionState(episodeId),
   ]);
   if (!episode) throw new Error("EPISODE_NOT_FOUND");
+  const db = getDb();
+  const workingBase = versions.workingDraft
+    ? scripts.find(
+        (script) => script.id === versions.workingDraft!.baseScriptId,
+      )
+    : undefined;
+  if (versions.workingDraft && !workingBase)
+    throw new Error("SCRIPT_NOT_FOUND");
+  const [scriptSources, workingSources] = await Promise.all([
+    Promise.all(
+      scripts.map((script) =>
+        scriptSourceContext(db, script.importId, script.blocks),
+      ),
+    ),
+    workingBase && versions.workingDraft
+      ? scriptSourceContext(
+          db,
+          workingBase.importId,
+          versions.workingDraft.blocks,
+        )
+      : Promise.resolve([]),
+  ]);
   return {
     episode,
     ...versions,
+    workingSources,
     editions: editions
       .filter((e) => e.status === "completed")
       .map((e) => ({
@@ -38,7 +52,7 @@ export async function writingState(episodeId: string) {
         rightsStatus: e.rightsStatus,
         coverage: e.expectedChapters,
       })),
-    scripts: scripts.map((s) => ({
+    scripts: scripts.map((s, index) => ({
       id: s.id,
       title: s.title,
       blocks: z.array(scriptBlockSchema).parse(s.blocks),
@@ -52,7 +66,7 @@ export async function writingState(episodeId: string) {
       generationInstructions: s.generationInstructions,
       model: s.model,
       createdAt: s.createdAt.toISOString(),
-      sources: retrievalSchema.parse(s.retrieval).sources,
+      sources: scriptSources[index],
     })),
     jobs: jobs.map((j) => ({
       id: j.id,

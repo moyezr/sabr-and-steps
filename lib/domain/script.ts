@@ -26,7 +26,7 @@ export const scriptBlockSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("reflection"),
-      text: z.string().min(1).max(2200),
+      text: z.string().trim().min(1).max(2200),
     })
     .strict(),
   z

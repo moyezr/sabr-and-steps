@@ -1,0 +1,1 @@
+ALTER TABLE "script_revisions" ALTER COLUMN "index_id" DROP NOT NULL;

@@ -11,8 +11,11 @@ import {
   discardWorkingDraft,
   restoreScriptVersion,
   selectScriptVersion,
+  startManualDraft,
 } from "@/lib/server/writing/versions";
 const idSchema = z.string().uuid();
+// Thirty full reflection blocks can expand sixfold when JSON escapes text.
+const WRITING_BODY_LIMIT = 512_000;
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -46,6 +49,7 @@ export async function POST(
       .object({
         action: z.enum([
           "generate",
+          "start",
           "autosave",
           "select",
           "checkpoint",
@@ -57,7 +61,7 @@ export async function POST(
         ]),
         data: z.unknown(),
       })
-      .parse(await readJson(request));
+      .parse(await readJson(request, WRITING_BODY_LIMIT));
     if (body.action === "generate") {
       const input = z
         .object({
@@ -85,14 +89,13 @@ export async function POST(
       );
       return Response.json({ jobId: job.id }, { status: 202 });
     }
-    if (body.action === "autosave")
-      await autosaveWorkingDraft(id, body.data);
+    if (body.action === "start") await startManualDraft(id, body.data);
+    if (body.action === "autosave") await autosaveWorkingDraft(id, body.data);
     if (body.action === "select") await selectScriptVersion(id, body.data);
     if (body.action === "checkpoint")
       await checkpointWorkingDraft(id, body.data);
     if (body.action === "discard") await discardWorkingDraft(id, body.data);
-    if (body.action === "restore")
-      await restoreScriptVersion(id, body.data);
+    if (body.action === "restore") await restoreScriptVersion(id, body.data);
     if (body.action === "save") await saveDraft(id, body.data);
     if (body.action === "review") {
       const data = z
@@ -122,6 +125,8 @@ export async function POST(
       error instanceof Error && /^[A-Z][A-Z0-9_]+$/.test(error.message)
         ? error.message
         : "WRITING_UNAVAILABLE";
+    if (message === "INVALID_BODY")
+      return Response.json({ error: message }, { status: 422 });
     return Response.json(
       { error: message },
       {
@@ -129,6 +134,7 @@ export async function POST(
           message.includes("CONFLICT") ||
           message.includes("CHANGED") ||
           message.includes("DRAFT_EXISTS") ||
+          message === "SCRIPT_ALREADY_EXISTS" ||
           message.includes("DRAFT_NOT_FOUND")
             ? 409
             : 503,

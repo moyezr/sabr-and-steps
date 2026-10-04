@@ -1,18 +1,27 @@
 # Progress
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-04.
 
 ## Current state
 
 - Repository: `/Users/moyezrabbani/Development/Projects/sabr-and-steps`.
-- Working branch: `main`. The complete editor branch is integrated; `main` and `codex/episode-editor` are synchronized.
-- Passing: H001 and F001–F003, F008–F012. No feature is currently active. PLAN.md milestones 1 and 2 are complete. F004 and F005 wait for creator listening/aesthetic feedback; F006 still needs exact-revision review and creator approval.
+- Working branch: `codex/script-block-editing`, based on the reconciled `main`. New work is local; no push was made.
+- Passing: H001 and F001–F003, F008–F013. No feature is currently active. PLAN.md milestones 1 and 2 are complete. F004 and F005 wait for creator listening/aesthetic feedback; F006 still needs exact-revision review and creator approval.
 - The connected editor exposes Idea, Script & sources, Voice & captions, Music, Backgrounds, Video, and Exports for existing and incomplete episodes.
 - Script models remain exactly `openai/gpt-5.6-luna` and `google/gemini-3.8-flash` through OpenRouter. Speech remains direct through configured providers with credit and rights checks.
 - PostgreSQL 17/pgvector runs locally on loopback port 55432. Provider outputs and final assets remain in the ignored local data directory.
-- The verified production app at `http://127.0.0.1:3107` and durable worker are intentionally running for creator review. The local database had no queued/running/uncertain jobs before the worker was started.
+- The updated production app at `http://127.0.0.1:3107` and local database are intentionally running for creator review. The worker is stopped; there are no queued/running/uncertain jobs. Temporary browser fixtures were removed.
 
 ## Latest completed work
+
+### F013 — manual scripts, block editing, and source insertion — 2026-10-04
+
+- Start a manual script without inference. Add/remove/reorder blocks, insert full canonical passages, and replace quotations after inspecting neighboring context in the episode source drawer. Existing autosave, undo/redo, named versions, and explicit selection apply to structural edits.
+- Quote wording/attribution remains protected; server checks reject fabricated, altered, and mismatched canonical records. Working and saved context follows the actual quotation blocks. Empty reflections pause autosave visibly until completed or removed.
+- Migration 0010 makes only script revision retrieval indexes nullable for honest manual provenance. Episode serialization uses locks compatible with checkpoint foreign keys. Existing pilot history/media and the restricted inference/provider policy are preserved.
+- Desktop, 390 × 844, and an additional narrow layout passed; navigation/reload, context adoption/replacement, structural undo, and explicit conflict recovery passed on disposable fixtures. No inference or rendering was dispatched.
+- Acceptance found and fixed the writing body-limit mismatch and an overflowing edition selector. An existing retry clock mismatch is fixed separately in local commit `5f83467`, with a deterministic clock-skew regression.
+- Evidence: [script block editing](docs/evidence/2026-10-04-script-block-editing.md). Final checks pass 42 unit tests, all five DB suites, production build, and diff/migration metadata checks.
 
 ### Main reconciliation — 2026-09-30
 
@@ -47,13 +56,13 @@ Last updated: 2026-09-30.
 
 ## Verification
 
-- `pnpm check`: harness, lint, TypeScript, and 38 unit tests pass.
+- `pnpm check`: harness, lint, TypeScript, and 42 unit tests pass.
 - `pnpm test:db`: all five disposable database suites pass.
 - `pnpm build` and `git diff --check` pass.
-- The real local database is migrated through 0009. No provider inference was made for F008–F012. Temporary fixture servers and databases were removed; verification images remain ignored under `.data/evidence/2026-09-30/`.
+- The real local database is migrated through 0010. No provider inference was made for F008–F013. Temporary fixture servers and databases were removed; latest logs and verification images remain ignored under `.data/evidence/2026-10-04/`.
 
 ## Next bounded action
 
-Continue PLAN.md milestone 3 with script block editing and source insertion: add/remove/reorder original reflection blocks and explicitly insert canonical passages with preserved attribution/context. Add its feature record and acceptance criteria before implementation; targeted partial AI rewrites follow as a separate slice.
+Continue PLAN.md milestone 3 with targeted partial AI rewrites: snapshot selected reflection text and instructions in durable jobs, retain alternatives from either permitted model, compare them with the original, and explicitly accept into the working draft without changing canonical quotes or later edits. Add its feature record and acceptance criteria before implementation.
 
 F004/F005 still need creator listening and visual feedback, and F006 needs exact-revision consolidated review and creator approval. Hadith support, timeline/media controls, and format-specific export remain planned. Full Qur’an coverage and publication rights remain unresolved. F012 has deterministic acceptance only; no fresh live idea-model response or cost is claimed.

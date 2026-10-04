@@ -258,6 +258,26 @@
         "2026-09-30: Retained idea directions, immutable input/model/revision snapshots, explicit local adoption, safe same-job retries, and owner-checked durable persistence passed deterministic unit/database/browser acceptance. pnpm check (38 unit tests), all five pnpm test:db suites, production build, Drizzle metadata check and git diff --check passed. See docs/evidence/2026-09-30-idea-assistance.md. No live inference was used."
       ],
       "notes": "Completed PLAN.md milestone 3A. Each generation retains three validated directions separately from the saved brief and selected script. Browser checks cover edits during generation, model history, explicit adoption/save/reload, same-job retry, uncertain results, navigation, and mobile layout. Script blocks/source insertion and targeted rewrites are next; a live F012 model check remains unperformed."
+    },
+    {
+      "id": "F013",
+      "priority": 13,
+      "area": "writing",
+      "title": "Edit script blocks and insert canonical sources",
+      "user_visible_behavior": "The creator can start a manual script, add/remove/reorder reflections and quotations, and search/insert/replace canonical passages with attribution and surrounding context without leaving the episode.",
+      "status": "passing",
+      "verification": [
+        "Start a manual script without model inference using a completed source edition; persist an immutable initial checkpoint with honest manual provenance and no embedding index.",
+        "Add, remove and reorder blocks through the existing undo/redo and revision-checked autosave; retain edits across navigation/reload and reject empty/oversized checkpoints.",
+        "Search the selected script edition by words, chapter and reference; inspect surrounding context and coverage/rights status before explicitly inserting or replacing a quotation.",
+        "Validate canonical text, reference, edition and import on the server; reject fabricated or mismatched source records and preserve current source context in named checkpoints.",
+        "Exercise concurrent manual starts, stale draft revisions, failed saves and downstream stale media; verify existing pilot/version/export behavior remains intact.",
+        "Run pnpm check, pnpm test:db, pnpm build and deterministic desktop/mobile browser acceptance without provider calls."
+      ],
+      "evidence": [
+        "2026-10-04: Manual starts, canonical block/source editing, current source context, structural undo, optimistic persistence and concurrency passed deterministic unit/database/browser acceptance. pnpm check (42 unit tests), all five pnpm test:db suites, pnpm build, migration metadata and git diff --check passed. See docs/evidence/2026-10-04-script-block-editing.md. No provider inference was dispatched."
+      ],
+      "notes": "Completed PLAN.md milestone 3B. Manual scripts require a completed source edition and use no retrieval index or inference. One source edition per script; canonical passages are inspected and adopted explicitly. Targeted AI rewrites, mixed-edition scripts and richer timeline/media controls remain separate slices."
     }
   ]
 }

@@ -1,8 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Redo2, RefreshCw, Undo2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  BookOpen,
+  Plus,
+  Redo2,
+  RefreshCw,
+  Trash2,
+  Undo2,
+} from "lucide-react";
+import { ScriptSourceBrowser } from "./script-source-browser";
 import {
   useEpisodeWorkspace,
   useWorkspaceBuffer,
@@ -88,6 +97,8 @@ function readableError(code: string) {
     return "The selected version changed elsewhere. Your local words are still here.";
   if (code === "SCRIPT_DRAFT_EXISTS")
     return "Save or discard the current working draft before changing versions.";
+  if (code === "SCRIPT_ALREADY_EXISTS")
+    return "A script was started elsewhere. Your manual words are still here; refresh to inspect the saved version.";
   if (code === "CANONICAL_QUOTATION_CHANGED")
     return "Canonical quotation wording cannot be changed in the script editor.";
   return code.replaceAll("_", " ");
@@ -121,6 +132,21 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
     initial.workingDraft ? "saved" : "idle",
   );
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [manualTitle, setManualTitle] = useWorkspaceBuffer(
+    `script:manual-title:${initial.episode.id}`,
+    initial.episode.title,
+  );
+  const [manualText, setManualText] = useWorkspaceBuffer(
+    `script:manual-text:${initial.episode.id}`,
+    "",
+  );
+  const [insertAfter, setInsertAfter] = useState<number | null>(null);
+  const [replacement, setReplacement] = useState<{
+    index: number;
+    reference: string;
+  } | null>(null);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  const sourcesAside = useRef<HTMLElement>(null);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -191,18 +217,25 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
       ? edit.title
       : selected?.title || "";
   const blocksKey = JSON.stringify(blocks);
+  const validEdit =
+    title.trim().length > 0 &&
+    blocks.length > 0 &&
+    blocks.length <= 30 &&
+    blocks.every((block) => block.text.trim().length > 0);
   const active = state.jobs.some(
     (job) => job.kind === "draft" && ["queued", "running"].includes(job.status),
   );
   const promptDirty =
-    edition !== initialEdition ||
-    generationInstructions.trim().length > 0;
+    edition !== initialEdition || generationInstructions.trim().length > 0;
+  const manualDirty =
+    !selected && (manualText.length > 0 || manualTitle !== state.episode.title);
   useWorkspaceDraft({
     dirty:
       dirty ||
       autosave === "error" ||
       autosave === "conflict" ||
-      promptDirty,
+      promptDirty ||
+      manualDirty,
     saving: busy || autosave === "saving",
   });
 
@@ -255,7 +288,49 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
   }
 
   function setBlocks(update: (items: ScriptBlock[]) => ScriptBlock[]) {
+    setReplacement(null);
     beginEdit(title, update(blocks));
+  }
+
+  function insertBlock(block: ScriptBlock) {
+    if (busy || blocks.length >= 30) return;
+    const position =
+      insertAfter === null
+        ? blocks.length
+        : Math.min(insertAfter + 1, blocks.length);
+    setBlocks((items) => [
+      ...items.slice(0, position),
+      block,
+      ...items.slice(position),
+    ]);
+    setInsertAfter(position);
+  }
+
+  function openSources() {
+    setSourcesOpen(true);
+    window.requestAnimationFrame(() =>
+      sourcesAside.current?.scrollIntoView({
+        block: "start",
+        behavior: "smooth",
+      }),
+    );
+  }
+
+  function moveBlock(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (busy || target < 0 || target >= blocks.length) return;
+    setBlocks((items) => {
+      const next = [...items];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+    setInsertAfter(null);
+  }
+
+  function removeBlock(index: number) {
+    if (busy || blocks.length <= 1) return;
+    setBlocks((items) => items.filter((_, itemIndex) => itemIndex !== index));
+    setInsertAfter(null);
   }
 
   function setTitle(value: string) {
@@ -264,6 +339,9 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
 
   const moveHistory = useCallback(
     (direction: "undo" | "redo") => {
+      if (busy) return;
+      setReplacement(null);
+      setInsertAfter(null);
       let changed = false;
       setDraft((current) => {
         if (!current.history) return current;
@@ -293,12 +371,16 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
         ["saving", "error", "conflict"].includes(current) ? current : "idle",
       );
     },
-    [setDraft],
+    [busy, setDraft],
   );
 
   useEffect(() => {
     function handleHistoryShortcut(event: KeyboardEvent) {
-      if (event.isComposing || event.altKey || (!event.metaKey && !event.ctrlKey))
+      if (
+        event.isComposing ||
+        event.altKey ||
+        (!event.metaKey && !event.ctrlKey)
+      )
         return;
       const target = event.target;
       if (
@@ -363,9 +445,7 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
               : localDraftFromState(next),
           );
           if (
-            !next.jobs.some((job) =>
-              ["queued", "running"].includes(job.status),
-            )
+            !next.jobs.some((job) => ["queued", "running"].includes(job.status))
           )
             void refreshWorkspace();
         })
@@ -382,6 +462,7 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
       !dirty ||
       !selected ||
       !edit ||
+      !validEdit ||
       busy ||
       autosave === "saving" ||
       autosave === "error" ||
@@ -462,6 +543,7 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
     title,
     refreshWorkspace,
     writingRequest,
+    validEdit,
   ]);
 
   async function act(action: string, data: unknown) {
@@ -472,19 +554,23 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
       const next = "episode" in result ? result : await refresh();
       if (!mounted.current) return next;
       setState(next);
-      if (["select", "checkpoint", "restore", "discard"].includes(action)) {
+      if (
+        ["start", "select", "checkpoint", "restore", "discard"].includes(action)
+      ) {
         setDraft(localDraftFromState(next));
         setAutosave(next.workingDraft ? "saved" : "idle");
         setConfirmDiscard(false);
+        setReplacement(null);
+        setInsertAfter(null);
       }
-      if (action === "checkpoint")
+      if (action === "start") setManualText("");
+      if (action === "checkpoint" || action === "start")
         setVersionLabel(`Version ${next.scripts.length + 1}`);
       if (action === "generate") setGenerationInstructions("");
       void refreshWorkspace();
       return next;
     } catch (caught) {
-      const code =
-        caught instanceof Error ? caught.message : "REQUEST_FAILED";
+      const code = caught instanceof Error ? caught.message : "REQUEST_FAILED";
       setError(readableError(code));
       return null;
     } finally {
@@ -549,33 +635,32 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
   const comparisonRight =
     state.scripts.find((script) => script.id === comparison.rightId) ||
     state.scripts.find((script) => script.id === comparisonFallback.rightId);
-  const comparisonRows = useMemo(
-    () => {
-      if (
-        !comparisonLeft ||
-        !comparisonRight ||
-        !Array.isArray(comparisonLeft.blocks) ||
-        !Array.isArray(comparisonRight.blocks)
-      )
-        return [];
-      return compareScriptBlocks(comparisonLeft.blocks, comparisonRight.blocks);
-    },
-    [comparisonLeft, comparisonRight],
-  );
+  const comparisonRows = useMemo(() => {
+    if (
+      !comparisonLeft ||
+      !comparisonRight ||
+      !Array.isArray(comparisonLeft.blocks) ||
+      !Array.isArray(comparisonRight.blocks)
+    )
+      return [];
+    return compareScriptBlocks(comparisonLeft.blocks, comparisonRight.blocks);
+  }, [comparisonLeft, comparisonRight]);
 
   return (
     <>
       <header className="workspace-section-heading script-heading">
         <div>
           <h2>Script & sources</h2>
-          <p>Shape your reflection. Keep quotations and their context intact.</p>
+          <p>
+            Shape your reflection. Keep quotations and their context intact.
+          </p>
         </div>
         <div className="script-heading-actions">
           <div className="script-undo-controls" aria-label="Edit history">
             <button
               type="button"
               className="text-link"
-              disabled={!history?.past.length}
+              disabled={busy || !history?.past.length}
               aria-keyshortcuts="Control+Z Meta+Z"
               title="Undo script edit (Ctrl/Cmd+Z)"
               onClick={() => moveHistory("undo")}
@@ -585,7 +670,7 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
             <button
               type="button"
               className="text-link"
-              disabled={!history?.future.length}
+              disabled={busy || !history?.future.length}
               aria-keyshortcuts="Control+Y Control+Shift+Z Meta+Shift+Z"
               title="Redo script edit (Ctrl+Y or Ctrl/Cmd+Shift+Z)"
               onClick={() => moveHistory("redo")}
@@ -594,15 +679,22 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
             </button>
           </div>
           <span className={`script-save-state ${autosave}`} role="status">
-            {autosave === "saving"
-              ? "Saving draft…"
-              : autosave === "saved" && workingDraft
-                ? "Working draft saved"
-                : autosave === "conflict"
-                  ? "Save conflict"
-                  : autosave === "error"
-                    ? "Draft not saved"
-                    : "Version saved"}
+            {dirty &&
+            autosave !== "saving" &&
+            autosave !== "conflict" &&
+            autosave !== "error"
+              ? "Unsaved changes"
+              : autosave === "saving"
+                ? "Saving draft…"
+                : autosave === "saved" && workingDraft
+                  ? "Working draft saved"
+                  : autosave === "conflict"
+                    ? "Save conflict"
+                    : autosave === "error"
+                      ? "Draft not saved"
+                      : selected
+                        ? "Version saved"
+                        : "No script yet"}
           </span>
         </div>
       </header>
@@ -637,7 +729,8 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
             >
               {state.editions.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name} · {item.coverage}/114 chapters · {item.environment}
+                  {item.name} · {item.coverage}/114 chapters ·{" "}
+                  {item.environment}
                 </option>
               ))}
             </select>
@@ -657,7 +750,12 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
         <button
           className="button primary-action"
           disabled={
-            busy || active || !edition || dirty || autosave === "saving"
+            busy ||
+            active ||
+            !edition ||
+            dirty ||
+            manualDirty ||
+            autosave === "saving"
           }
           onClick={() =>
             void act("generate", {
@@ -685,6 +783,8 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
         <p>
           Uses {state.episode.llmModel}. A generated alternative is added to
           history and never replaces the selected version automatically.
+          {manualDirty &&
+            " Start your manual script or clear the manual form before generating."}
         </p>
       </section>
       {state.jobs
@@ -713,13 +813,72 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
           </div>
         ))}
       {!selected ? (
-        <section className="empty-state panel">
+        <section className="panel script-manual-start">
           <BookOpen />
-          <h2>Your first draft starts with a source.</h2>
+          <h2>Write your first draft</h2>
           <p>
-            Generate from the saved brief, then inspect each quotation beside
-            its context.
+            Start with your own words, then add reflections and canonical
+            passages. Choose a source edition above for passages you may insert.
+            Starting manually uses no model credits.
           </p>
+          <label>
+            Manual script title
+            <input
+              value={manualTitle}
+              maxLength={140}
+              disabled={busy || active}
+              onChange={(event) => setManualTitle(event.target.value)}
+            />
+          </label>
+          <label>
+            Opening reflection
+            <textarea
+              value={manualText}
+              maxLength={2200}
+              rows={4}
+              disabled={busy || active}
+              onChange={(event) => setManualText(event.target.value)}
+            />
+          </label>
+          {!edition && (
+            <p className="source-notice">
+              Import a source edition before starting a script.
+            </p>
+          )}
+          <button
+            type="button"
+            className="button primary-action"
+            disabled={
+              busy ||
+              active ||
+              !edition ||
+              !manualTitle.trim() ||
+              !manualText.trim()
+            }
+            onClick={() =>
+              void act("start", {
+                importId: edition,
+                episodeRevision: state.episode.revision,
+                title: manualTitle,
+                text: manualText,
+              })
+            }
+          >
+            Start manual script
+          </button>
+          {manualDirty && (
+            <button
+              type="button"
+              className="text-link"
+              disabled={busy || active}
+              onClick={() => {
+                setManualTitle(state.episode.title);
+                setManualText("");
+              }}
+            >
+              Clear manual form
+            </button>
+          )}
         </section>
       ) : (
         <>
@@ -814,35 +973,122 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                   data-script-edit-field
                   value={title}
                   maxLength={140}
+                  disabled={busy}
                   onChange={(event) => setTitle(event.target.value)}
                 />
               </label>
+              <div className="script-block-toolbar">
+                <label>
+                  Insert new block
+                  <select
+                    value={insertAfter === null ? "end" : String(insertAfter)}
+                    disabled={busy}
+                    onChange={(event) =>
+                      setInsertAfter(
+                        event.target.value === "end"
+                          ? null
+                          : Number(event.target.value),
+                      )
+                    }
+                  >
+                    <option value="end">At the end</option>
+                    <option value="-1">At the beginning</option>
+                    {blocks.map((_, index) => (
+                      <option key={index} value={index}>
+                        After block {index + 1}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="button"
+                  disabled={busy || blocks.length >= 30}
+                  onClick={() => insertBlock({ kind: "reflection", text: "" })}
+                >
+                  <Plus size={14} /> Add reflection
+                </button>
+                <button
+                  type="button"
+                  className="text-link"
+                  disabled={busy || blocks.length >= 30}
+                  onClick={openSources}
+                >
+                  <BookOpen size={14} /> Find a quotation
+                </button>
+                <span>{blocks.length}/30 blocks</span>
+              </div>
+              {!validEdit && (
+                <p className="source-notice" role="status">
+                  Add a title and finish empty reflections, or remove them, to
+                  resume autosaving.
+                </p>
+              )}
               {blocks.map((block, index) => (
                 <div
                   key={`${selected.id}-${index}`}
                   className={`script-block ${block.kind}`}
                 >
-                  <div className="eyebrow">
-                    {block.kind === "quote"
-                      ? `QUR’AN ${block.reference} · CANONICAL TRANSLATION`
-                      : "ORIGINAL REFLECTION"}
+                  <div className="script-block-header">
+                    <div className="eyebrow">
+                      <span className="script-block-number">{index + 1}. </span>
+                      {block.kind === "quote"
+                        ? `QUR’AN ${block.reference} · CANONICAL TRANSLATION`
+                        : "ORIGINAL REFLECTION"}
+                    </div>
+                    <div className="script-block-actions">
+                      <button
+                        type="button"
+                        className="text-link"
+                        aria-label={`Move block ${index + 1} up`}
+                        disabled={busy || index === 0}
+                        onClick={() => moveBlock(index, -1)}
+                      >
+                        <ArrowUp size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className="text-link"
+                        aria-label={`Move block ${index + 1} down`}
+                        disabled={busy || index === blocks.length - 1}
+                        onClick={() => moveBlock(index, 1)}
+                      >
+                        <ArrowDown size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className="text-link"
+                        aria-label={`Remove block ${index + 1}`}
+                        disabled={busy || blocks.length === 1}
+                        onClick={() => removeBlock(index)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
                   {block.kind === "quote" ? (
                     <>
                       <p translate="no">{block.text}</p>
                       <small>{block.edition}</small>
-                      <Link
+                      <button
+                        type="button"
                         className="text-link"
-                        href={`/sources?edition=${block.importId}&reference=${block.reference}`}
+                        disabled={busy}
+                        onClick={() => {
+                          setReplacement({ index, reference: block.reference });
+                          openSources();
+                        }}
                       >
-                        Inspect verse context
-                      </Link>
+                        Replace quotation
+                      </button>
                     </>
                   ) : (
                     <textarea
                       data-script-edit-field
                       aria-label={`Reflection ${index + 1}`}
                       value={block.text}
+                      maxLength={2200}
+                      disabled={busy}
                       rows={Math.max(3, Math.ceil(block.text.length / 70))}
                       onChange={(event) =>
                         setBlocks((items) =>
@@ -863,7 +1109,10 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
               <div className="writing-actions">
                 <span>
                   {narrationText(blocks).split(/\s+/).filter(Boolean).length}{" "}
-                  spoken words · {selected.reviewState}
+                  spoken words ·{" "}
+                  {dirty || workingDraft
+                    ? "unreviewed working draft"
+                    : selected.reviewState}
                 </span>
                 <button
                   className="button"
@@ -893,13 +1142,44 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                 immutable checkpoint; review belongs to that exact version.
               </p>
             </section>
-            <aside className="panel writing-context">
+            <aside ref={sourcesAside} className="panel writing-context">
+              <details
+                className="script-source-drawer"
+                open={sourcesOpen}
+                onToggle={(event) => setSourcesOpen(event.currentTarget.open)}
+              >
+                <summary>Find and insert a passage</summary>
+                <ScriptSourceBrowser
+                  episodeId={state.episode.id}
+                  importId={selected.importId}
+                  canInsert={
+                    !busy && (replacement !== null || blocks.length < 30)
+                  }
+                  replacement={replacement}
+                  onInsert={insertBlock}
+                  onReplace={(block) => {
+                    if (
+                      !replacement ||
+                      busy ||
+                      blocks[replacement.index]?.kind !== "quote"
+                    )
+                      return;
+                    const index = replacement.index;
+                    setBlocks((items) =>
+                      items.map((item, itemIndex) =>
+                        itemIndex === index ? block : item,
+                      ),
+                    );
+                  }}
+                  onCancelReplace={() => setReplacement(null)}
+                />
+              </details>
               <h2>Source context</h2>
               <p>
                 Retrieved passages are candidates, not proof of interpretation.
                 Read the surrounding verses before reviewing.
               </p>
-              {selected.sources
+              {(workingDraft ? state.workingSources : selected.sources)
                 .filter((source) =>
                   blocks.some(
                     (block) =>
@@ -954,14 +1234,14 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                   >
                     {state.scripts.map((script) => (
                       <option key={script.id} value={script.id}>
-                        {script.label} · {script.changeKind.replaceAll("_", " ")}
+                        {script.label} ·{" "}
+                        {script.changeKind.replaceAll("_", " ")}
                       </option>
                     ))}
                   </select>
                   <small>
-                    {comparisonLeft.model} · {new Date(
-                      comparisonLeft.createdAt,
-                    ).toLocaleString()}
+                    {comparisonLeft.model} ·{" "}
+                    {new Date(comparisonLeft.createdAt).toLocaleString()}
                   </small>
                 </label>
                 <label>
@@ -977,14 +1257,14 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                   >
                     {state.scripts.map((script) => (
                       <option key={script.id} value={script.id}>
-                        {script.label} · {script.changeKind.replaceAll("_", " ")}
+                        {script.label} ·{" "}
+                        {script.changeKind.replaceAll("_", " ")}
                       </option>
                     ))}
                   </select>
                   <small>
-                    {comparisonRight.model} · {new Date(
-                      comparisonRight.createdAt,
-                    ).toLocaleString()}
+                    {comparisonRight.model} ·{" "}
+                    {new Date(comparisonRight.createdAt).toLocaleString()}
                   </small>
                 </label>
               </div>
@@ -1039,7 +1319,11 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                                 ? `QUR’AN ${block.reference}`
                                 : "ORIGINAL REFLECTION"}
                             </span>
-                            <p translate={block.kind === "quote" ? "no" : undefined}>
+                            <p
+                              translate={
+                                block.kind === "quote" ? "no" : undefined
+                              }
+                            >
                               {block.text}
                             </p>
                             {block.kind === "quote" && (
@@ -1074,15 +1358,13 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
               {state.scripts.map((script) => {
                 const current = script.id === state.selectedScriptId;
                 return (
-                  <article
-                    key={script.id}
-                    className={current ? "current" : ""}
-                  >
+                  <article key={script.id} className={current ? "current" : ""}>
                     <div>
                       <strong>{script.label}</strong>
                       {current && <span className="pill">Selected</span>}
                       <p>
-                        {script.changeKind.replaceAll("_", " ")} · {script.model} ·{" "}
+                        {script.changeKind.replaceAll("_", " ")} ·{" "}
+                        {script.model} ·{" "}
                         {new Date(script.createdAt).toLocaleString()}
                       </p>
                       {script.generationInstructions && (

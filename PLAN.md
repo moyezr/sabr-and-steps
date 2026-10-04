@@ -2,7 +2,7 @@
 
 Date: 2026-09-16.
 
-Status: accepted by the creator; milestones 1 and 2 are complete as F008–F011. Milestone 3 has delivered F012 idea assistance; iterative script editing, source selection, and partial rewrites follow. This document records intended behavior; verification and session results remain in `PROGRESS.md` and `feature_list.json`.
+Status: accepted by the creator; milestones 1 and 2 are complete as F008–F011. Milestone 3 has delivered F012 idea assistance and F013 manual script/block editing with source selection; targeted partial rewrites follow. This document records intended behavior; verification and session results remain in `PROGRESS.md` and `feature_list.json`.
 
 ## Goal
 
@@ -137,7 +137,7 @@ Implement one bounded milestone at a time, with acceptance evidence before proce
 | --- | --- | --- |
 | 1 | Connected episode workspace, working navigation, existing-project loading | Completed (F008) |
 | 2 | Autosave, explicit version selection, history, correct change tracking | Completed (F009–F011) |
-| 3 | Idea assistance, iterative script editing, source selection, partial rewrites | In progress (F012 complete; script iteration next) |
+| 3 | Idea assistance, iterative script editing, source selection, partial rewrites | In progress (F012–F013 complete; partial rewrites next) |
 | 4 | Scene timeline, voice/caption editing, media library, visual controls | Planned |
 | 5 | Format-specific export, consolidated review, complete workflow testing | Planned |
 

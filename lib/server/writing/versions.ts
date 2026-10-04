@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { scriptBlockSchema, validateScriptQuotes } from "../../domain/script";
+import { scriptBlockSchema } from "../../domain/script";
 import { getDb } from "../db/client";
 import {
   episodeScriptDrafts,
@@ -10,12 +10,19 @@ import {
   episodeWorkspaceStates,
   scriptRevisions,
   sourceImports,
-  sourcePassages,
 } from "../db/schema";
 import { digest } from "../hash";
+import { scriptSourceContext, withScriptSources } from "./source-context";
 
 const titleSchema = z.string().trim().min(1).max(140);
 const labelSchema = z.string().trim().min(1).max(140);
+
+export const manualDraftInputSchema = z.object({
+  importId: z.string().uuid(),
+  episodeRevision: z.number().int().positive(),
+  title: titleSchema,
+  text: z.string().trim().min(1).max(2200),
+});
 
 export const workingDraftInputSchema = z.object({
   baseScriptId: z.string().uuid(),
@@ -52,6 +59,88 @@ export type WorkingDraft = {
   blocks: z.infer<typeof scriptBlockSchema>[];
   updatedAt: string;
 };
+
+/** The episode lock serializes first drafts even before a workspace row exists. */
+export async function startManualDraft(episodeId: string, raw: unknown) {
+  const input = manualDraftInputSchema.parse(raw);
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const episode = (
+      await tx
+        .select()
+        .from(episodes)
+        .where(eq(episodes.id, episodeId))
+        .for("no key update")
+    )[0];
+    if (!episode) throw new Error("EPISODE_NOT_FOUND");
+    if (episode.revision !== input.episodeRevision)
+      throw new Error("EPISODE_REVISION_CHANGED");
+    const workspace = (
+      await tx
+        .select()
+        .from(episodeWorkspaceStates)
+        .where(eq(episodeWorkspaceStates.episodeId, episodeId))
+        .for("update")
+    )[0];
+    const existing = (
+      await tx
+        .select({ id: scriptRevisions.id })
+        .from(scriptRevisions)
+        .where(eq(scriptRevisions.episodeId, episodeId))
+        .limit(1)
+    )[0];
+    const draft = (
+      await tx
+        .select({ episodeId: episodeScriptDrafts.episodeId })
+        .from(episodeScriptDrafts)
+        .where(eq(episodeScriptDrafts.episodeId, episodeId))
+        .for("update")
+    )[0];
+    if (existing || draft) throw new Error("SCRIPT_ALREADY_EXISTS");
+    const edition = (
+      await tx
+        .select()
+        .from(sourceImports)
+        .where(eq(sourceImports.id, input.importId))
+    )[0];
+    if (!edition || edition.status !== "completed")
+      throw new Error("SOURCE_IMPORT_NOT_COMPLETE");
+    const blocks = [{ kind: "reflection" as const, text: input.text }];
+    const created = (
+      await tx
+        .insert(scriptRevisions)
+        .values({
+          episodeId,
+          episodeRevision: episode.revision,
+          importId: edition.id,
+          indexId: null,
+          model: "manual",
+          title: input.title,
+          blocks,
+          retrieval: { sources: [] },
+          checksum: digest({ title: input.title, blocks }),
+          label: "Manual draft",
+          changeKind: "checkpoint",
+        })
+        .returning()
+    )[0];
+    if (!workspace) {
+      await tx
+        .insert(episodeWorkspaceStates)
+        .values({ episodeId, selectedScriptId: created.id });
+    } else {
+      await tx
+        .update(episodeWorkspaceStates)
+        .set({
+          selectedScriptId: created.id,
+          revision: sql`${episodeWorkspaceStates.revision} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(episodeWorkspaceStates.episodeId, episodeId));
+    }
+    return created;
+  });
+}
 
 export async function scriptVersionState(episodeId: string) {
   const db = getDb();
@@ -93,6 +182,11 @@ export async function scriptVersionState(episodeId: string) {
 export async function selectFirstScript(episodeId: string, scriptId: string) {
   const db = getDb();
   await db.transaction(async (tx) => {
+    await tx
+      .select({ id: episodes.id })
+      .from(episodes)
+      .where(eq(episodes.id, episodeId))
+      .for("no key update");
     const current = (
       await tx
         .select()
@@ -178,19 +272,7 @@ export async function autosaveWorkingDraft(episodeId: string, raw: unknown) {
     )
       throw new Error("SCRIPT_DRAFT_CONFLICT");
 
-    const edition = (
-      await tx
-        .select()
-        .from(sourceImports)
-        .where(eq(sourceImports.id, base.importId))
-    )[0];
-    const sources = (
-      await tx
-        .select()
-        .from(sourcePassages)
-        .where(eq(sourcePassages.importId, base.importId))
-    ).map((passage) => ({ ...passage, edition: edition.name }));
-    validateScriptQuotes(input.blocks, sources);
+    await scriptSourceContext(tx, base.importId, input.blocks);
 
     if (!existing) {
       const inserted = await tx
@@ -362,6 +444,12 @@ export async function checkpointWorkingDraft(episodeId: string, raw: unknown) {
     if (!base) throw new Error("SCRIPT_NOT_FOUND");
     const selectedId = workspace?.selectedScriptId || base.id;
     if (selectedId !== base.id) throw new Error("SCRIPT_SELECTION_CHANGED");
+    const blocks = z
+      .array(scriptBlockSchema)
+      .min(1)
+      .max(30)
+      .parse(draft.blocks);
+    const sources = await scriptSourceContext(tx, base.importId, blocks);
     const created = (
       await tx
         .insert(scriptRevisions)
@@ -373,9 +461,9 @@ export async function checkpointWorkingDraft(episodeId: string, raw: unknown) {
           indexId: base.indexId,
           model: base.model,
           title: draft.title,
-          blocks: draft.blocks,
-          retrieval: base.retrieval,
-          checksum: digest({ title: draft.title, blocks: draft.blocks }),
+          blocks,
+          retrieval: withScriptSources(base.retrieval, sources),
+          checksum: digest({ title: draft.title, blocks }),
           label: input.label,
           changeKind: "checkpoint",
           generationInstructions: "",
@@ -457,6 +545,11 @@ export async function restoreScriptVersion(episodeId: string, raw: unknown) {
     if (draft) throw new Error("SCRIPT_DRAFT_EXISTS");
     const selectedId = workspace?.selectedScriptId || latest?.id;
     if (!selectedId) throw new Error("SCRIPT_NOT_FOUND");
+    const sources = await scriptSourceContext(
+      tx,
+      target.importId,
+      target.blocks,
+    );
     const created = (
       await tx
         .insert(scriptRevisions)
@@ -469,7 +562,7 @@ export async function restoreScriptVersion(episodeId: string, raw: unknown) {
           model: target.model,
           title: target.title,
           blocks: target.blocks,
-          retrieval: target.retrieval,
+          retrieval: withScriptSources(target.retrieval, sources),
           checksum: target.checksum,
           label: input.label || `Restored ${target.label}`,
           changeKind: "restored",
