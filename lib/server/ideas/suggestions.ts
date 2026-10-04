@@ -288,7 +288,7 @@ export async function retryIdeaSuggestion(episodeId: string, jobId: string) {
       attempts: 0,
       error: null,
       progress: "Waiting for worker",
-      availableAt: new Date(),
+      availableAt: sql`now()`,
       leaseUntil: null,
       owner: null,
       updatedAt: new Date(),

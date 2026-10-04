@@ -72,7 +72,7 @@ export async function retryJob(id: string) {
         status: "queued",
         attempts: 0,
         error: null,
-        availableAt: new Date(),
+        availableAt: sql`now()`,
         updatedAt: new Date(),
       })
       .where(and(eq(jobs.id, id), eq(jobs.status, "failed")))

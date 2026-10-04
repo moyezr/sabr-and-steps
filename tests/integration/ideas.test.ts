@@ -32,7 +32,7 @@ const directions = [
 
 const supported = { supported: true, reason: "", directions };
 
-test("idea suggestions retain revision snapshots without replacing episode or script work", async () => {
+test("idea suggestions retain revision snapshots without replacing episode or script work", async (context) => {
   const configuredDatabaseUrl = process.env.DATABASE_URL;
   assert(configuredDatabaseUrl, "Run pnpm db:configure and pnpm db:up first.");
   const admin = new Pool({
@@ -322,13 +322,42 @@ test("idea suggestions retain revision snapshots without replacing episode or sc
       .from(ideaSuggestionSets)
       .where(eq(ideaSuggestionSets.episodeId, episode.id));
     assert.equal(afterMalformed.length, 2);
-    const firstRetry = await retryIdeaSuggestion(episode.id, retryableJob.id);
-    const repeatedRetry = await retryIdeaSuggestion(
-      episode.id,
-      retryableJob.id,
+    // An immediate retry must be claimable even when the client clock is ahead.
+    // Preserve parsing of explicit timestamps while shifting new Date() by a minute.
+    const clientClock = context.mock.method(
+      globalThis,
+      "Date",
+      new Proxy(Date, {
+        construct: (target, args, newTarget) =>
+          Reflect.construct(
+            target,
+            args.length ? args : [target.now() + 60_000],
+            newTarget,
+          ),
+      }),
     );
-    assert.equal(firstRetry.id, retryableJob.id);
-    assert.equal(repeatedRetry.id, retryableJob.id);
+    try {
+      const firstRetry = await retryIdeaSuggestion(episode.id, retryableJob.id);
+      const repeatedRetry = await retryIdeaSuggestion(
+        episode.id,
+        retryableJob.id,
+      );
+      assert.equal(firstRetry.id, retryableJob.id);
+      assert.equal(repeatedRetry.id, retryableJob.id);
+      assert.equal(firstRetry.status, "queued");
+      assert.equal(firstRetry.attempts, 0);
+      const readiness = await applicationPool.query<{ ready: boolean }>(
+        "SELECT available_at<=now() AS ready FROM jobs WHERE id=$1",
+        [retryableJob.id],
+      );
+      assert.equal(
+        readiness.rows[0].ready,
+        true,
+        "Retry is immediately eligible.",
+      );
+    } finally {
+      clientClock.mock.restore();
+    }
     const retryRun = await runOne(retryableJob.id, (job) =>
       createIdeaSuggestions(job, validGenerator),
     );
