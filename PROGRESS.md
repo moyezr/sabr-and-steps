@@ -1,11 +1,11 @@
 # Progress
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 ## Current state
 
 - Repository: `/Users/moyezrabbani/Development/Projects/sabr-and-steps`.
-- Working branch: `codex/script-block-editing`, based on the reconciled `main`. New work is local; no push was made.
+- Working branch: `codex/script-block-editing`, based on the reconciled `main`, with an upstream at `origin/codex/script-block-editing`. Implementation commits are pushed to GitHub using the `moyezr` account.
 - Passing: H001 and F001–F003, F008–F013. No feature is currently active. PLAN.md milestones 1 and 2 are complete. F004 and F005 wait for creator listening/aesthetic feedback; F006 still needs exact-revision review and creator approval.
 - The connected editor exposes Idea, Script & sources, Voice & captions, Music, Backgrounds, Video, and Exports for existing and incomplete episodes.
 - Script models remain exactly `openai/gpt-5.6-luna` and `google/gemini-3.8-flash` through OpenRouter. Speech remains direct through configured providers with credit and rights checks.
@@ -14,13 +14,19 @@ Last updated: 2026-10-04.
 
 ## Latest completed work
 
+### GitHub synchronization — 2026-10-05
+
+- The creator authorized pushing all local work. Fetched the remote and confirmed that only `5f83467` (retry clock fix) and `005bccf` (F013) were unpushed; both are now on `origin/codex/script-block-editing`.
+- Existing `main` and `codex/episode-editor` were already synchronized. No credentials, local media, provider outputs, or ignored acceptance assets were included.
+- The implementation retains its recorded passing acceptance evidence. This maintenance session changes only the handoff; harness and diff checks verify the documentation update.
+
 ### F013 — manual scripts, block editing, and source insertion — 2026-10-04
 
 - Start a manual script without inference. Add/remove/reorder blocks, insert full canonical passages, and replace quotations after inspecting neighboring context in the episode source drawer. Existing autosave, undo/redo, named versions, and explicit selection apply to structural edits.
 - Quote wording/attribution remains protected; server checks reject fabricated, altered, and mismatched canonical records. Working and saved context follows the actual quotation blocks. Empty reflections pause autosave visibly until completed or removed.
 - Migration 0010 makes only script revision retrieval indexes nullable for honest manual provenance. Episode serialization uses locks compatible with checkpoint foreign keys. Existing pilot history/media and the restricted inference/provider policy are preserved.
 - Desktop, 390 × 844, and an additional narrow layout passed; navigation/reload, context adoption/replacement, structural undo, and explicit conflict recovery passed on disposable fixtures. No inference or rendering was dispatched.
-- Acceptance found and fixed the writing body-limit mismatch and an overflowing edition selector. An existing retry clock mismatch is fixed separately in local commit `5f83467`, with a deterministic clock-skew regression.
+- Acceptance found and fixed the writing body-limit mismatch and an overflowing edition selector. An existing retry clock mismatch is fixed separately in commit `5f83467`, with a deterministic clock-skew regression.
 - Evidence: [script block editing](docs/evidence/2026-10-04-script-block-editing.md). Final checks pass 42 unit tests, all five DB suites, production build, and diff/migration metadata checks.
 
 ### Main reconciliation — 2026-09-30
