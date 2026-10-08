@@ -152,7 +152,7 @@ export function toSrt(cues: Cue[]) {
 }
 export const compositionSchema = z
   .object({
-    version: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    version: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
     editorSettings: editorSettingsSchema.optional(),
     audioOffset: z.number().min(0).max(8).optional(),
     sceneImages: z
@@ -169,6 +169,8 @@ export const compositionSchema = z
               mime: z.string(),
               width: z.number().positive().nullable(),
               height: z.number().positive().nullable(),
+              kind: z.literal("video").optional(),
+              duration: z.number().positive().max(120).optional(),
             })
             .nullable(),
         }),
@@ -198,6 +200,8 @@ export const compositionSchema = z
         mime: z.string().optional(),
         width: z.number().positive().nullable().optional(),
         height: z.number().positive().nullable().optional(),
+        kind: z.literal("video").optional(),
+        duration: z.number().positive().max(120).optional(),
       })
       .nullable()
       .optional(),
@@ -221,6 +225,28 @@ export const compositionSchema = z
     attribution: z.string(),
   })
   .superRefine((data, context) => {
+    for (const image of [
+      data.image,
+      ...(data.sceneImages || []).map((s) => s.image),
+    ]) {
+      if (!image) continue;
+      if (image.kind === "video" || image.mime?.startsWith("video/")) {
+        if (
+          data.version !== 4 ||
+          image.kind !== "video" ||
+          image.mime !== "video/mp4" ||
+          !image.duration ||
+          image.duration < 1 / data.fps ||
+          !image.width ||
+          !image.height
+        )
+          context.addIssue({
+            code: "custom",
+            message:
+              "Video backgrounds require a v4 snapshot with inspected duration and dimensions.",
+          });
+      }
+    }
     if (data.editorSettings && data.music) {
       const { musicStart, musicEnd } = data.editorSettings;
       const end = musicEnd ?? data.music.duration;

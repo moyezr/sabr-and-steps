@@ -3,6 +3,8 @@ import {
   AbsoluteFill,
   Audio,
   Img,
+  Loop,
+  OffthreadVideo,
   Sequence,
   interpolate,
   useCurrentFrame,
@@ -15,6 +17,7 @@ import {
   fitSceneText,
 } from "../lib/domain/scene-settings";
 import type { CompositionData } from "../lib/domain/media";
+import { backgroundLoopFrames } from "../lib/domain/background-media";
 export type FilmProps = { data: CompositionData; assetBaseUrl?: string };
 const palettes = {
   forest: ["#102d28", "#335b46", "#bfa573"],
@@ -170,7 +173,34 @@ export function EpisodeFilm({ data, assetBaseUrl = "" }: FilmProps) {
       </svg>
       {image && (
         <>
-          {image.mime === "image/gif" ? (
+          {image.kind === "video" ? (
+            <Sequence
+              key={sceneImage ? `scene-${cueIndex}-${image.id}` : image.id}
+              from={sceneImage && cue ? Math.ceil(cue.start * fps) : 0}
+              layout="none"
+            >
+              <Loop
+                durationInFrames={backgroundLoopFrames(image.duration!, fps)}
+                layout="none"
+              >
+                <OffthreadVideo
+                  src={`${assetBaseUrl}${image.url}`}
+                  muted
+                  pauseWhenBuffering
+                  trimAfter={backgroundLoopFrames(image.duration!, fps)}
+                  style={{
+                    position: "absolute",
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    objectPosition: `${imagePosition}% ${imageY}%`,
+                    transform: `scale(${zoom})`,
+                    transformOrigin: `${imagePosition}% ${imageY}%`,
+                  }}
+                />
+              </Loop>
+            </Sequence>
+          ) : image.mime === "image/gif" ? (
             <Gif
               src={`${assetBaseUrl}${image.url}`}
               width={gifWidth}

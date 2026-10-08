@@ -7,7 +7,7 @@
 - Regular Qur'an translations and hadith with attribution and source references.
 - Normal duration 1–3 minutes; maximum 5 minutes.
 - Landscape videos and vertical Shorts, with captions at the visual center.
-- Creator-uploaded still images or animated GIF backgrounds, configurable background audio, and optional AI narration. Video backgrounds are deferred.
+- Creator-uploaded still images, animated GIFs or muted H.264 MP4 backgrounds, configurable background audio, and optional AI narration. Clips are bounded to 30 MB, two minutes, 1920 pixels and 60 fps.
 - Text-only reading cards with background music or silence, adjustable reading speed, image framing/darkness, and audio level/loop/fades.
 - Voice, gender, pace, and tone remain configurable while the creator auditions them.
 - Goal of 2–3 videos per week, a low initial budget, and optional paid credits.

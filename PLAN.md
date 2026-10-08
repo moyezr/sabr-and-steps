@@ -97,7 +97,7 @@ Music controls include track selection, trim/start offset, volume, looping, sepa
 
 Background controls include uploaded images/GIFs, crop, position, zoom, and dimming. Allow applying a background to the entire video or selected scenes, with separate framing adjustments for landscape and vertical.
 
-Preserve the current image/GIF scope initially. Video-file backgrounds remain a later extension. Creator uploads are the primary workflow; a stock library is not required.
+The initial image/GIF scope is retained. F019 adds bounded creator-uploaded H.264 MP4 backgrounds with muted audio, deterministic loops and scene-specific use. Creator uploads remain the primary workflow; a stock library is not required.
 
 ## 7. Add a scene timeline and direct visual control
 
@@ -170,4 +170,4 @@ Use deterministic fixtures for routine generation tests. Identify live-provider 
 
 ## Remaining prerequisites and extensions
 
-F004/F005 require creator listening and visual feedback. F006 requires exact-export pilot review and approval. F007 needs an actual reviewed hadith corpus/API access; F017 needs approved full Qur’an access and reuse evidence. F018 tracks missing direct-provider quota/rights evidence and dispatch extensions. Video-file backgrounds, mixed Qur’an editions and source footnote explanations remain deferred. These are not completed by deterministic fixtures or by technical editor delivery.
+F004/F005 require creator listening and visual feedback. F006 requires exact-export pilot review and approval. F007 needs an actual reviewed hadith corpus/API access; F017 needs approved full Qur’an access and reuse evidence. F018 tracks missing direct-provider quota/rights evidence and dispatch extensions. Video-file backgrounds are implemented in F019; mixed Qur’an editions and source footnote explanations remain deferred. These are not completed by deterministic fixtures or by technical editor delivery.

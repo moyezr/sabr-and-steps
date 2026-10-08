@@ -371,6 +371,25 @@
         "2026-10-08: Four diagnostics unit tests and actual read-only provider checks pass; UI exposes missing/denied quota access without inference. See docs/evidence/2026-10-08-editor-completion.md."
       ],
       "notes": "Account billing balance-read permissions and verified grant/pricing/rights are missing. Read-only diagnostics are implemented; direct speech/STT dispatch is not implemented or accepted. Existing verified ElevenLabs path remains available."
+    },
+    {
+      "id": "F019",
+      "priority": 19,
+      "area": "media",
+      "title": "Use uploaded video backgrounds",
+      "user_visible_behavior": "The creator can upload a muted MP4 background, use it across the video or on a scene, and save matching landscape/vertical preview and export framing.",
+      "status": "passing",
+      "verification": [
+        "Import bounded H.264 MP4 files by inspected content; reject unsupported, oversized, malformed or out-of-bound media without retaining failed files.",
+        "Save immutable video snapshots and scene overrides, retain prior image/GIF compositions, and reject tampered asset checksums.",
+        "Inspect deterministic loop and scene-start frames in both rendered formats; decode outputs and prove background audio is muted.",
+        "Use upload/library/scene controls at desktop and 390 × 844; save/reload, retain edits on failure and verify downloaded outputs."
+      ],
+      "evidence": [
+        "2026-10-08: 67 unit tests, ten DB suites and production build pass. Actual disposable uploads/snapshots/ranges/checksum refusal and both-format decoding pass; frame-exact loop and scene-origin comparisons pass.",
+        "2026-10-08: Desktop and 390 × 844 upload/rejection retention, muted previews, scene/crop/zoom save/reload and MP4 download pass. See docs/evidence/2026-10-08-video-backgrounds.md."
+      ],
+      "notes": "Muted H.264 MP4 only, up to 30 MB, two minutes, 1920 pixels/1080p pixel area and 60 fps. No provider inference, publication render, platform upload, source clearance or creator pilot approval is included."
     }
   ],
   "parallel_implementation": {

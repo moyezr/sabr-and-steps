@@ -9,6 +9,7 @@ import { z } from "zod";
 import { getDb } from "../db/client";
 import { mediaAssets } from "../db/schema";
 import { dataPath } from "../jobs/files";
+import { inspectVideoUpload } from "../../domain/background-media";
 const exec = promisify(execFile);
 export const MAX_ASSET_BYTES = 30 * 1024 * 1024;
 export async function listAssets() {
@@ -49,9 +50,17 @@ export async function findAsset(id: string) {
   if (!asset) throw new Error("ASSET_NOT_FOUND");
   return asset;
 }
-export async function checkedAsset(id: string, kind: "image" | "audio") {
+export async function checkedAsset(
+  id: string,
+  kind: "image" | "audio" | "video" | "background",
+) {
   const a = await findAsset(id);
-  if (a.kind !== kind) throw new Error("ASSET_KIND_MISMATCH");
+  if (
+    kind === "background"
+      ? !["image", "video"].includes(a.kind)
+      : a.kind !== kind
+  )
+    throw new Error("ASSET_KIND_MISMATCH");
   const bytes = await readFile(/* turbopackIgnore: true */ dataPath(a.path));
   if (
     createHash("sha256").update(new Uint8Array(bytes)).digest("hex") !==
@@ -65,7 +74,7 @@ export async function importAsset(bytes: Uint8Array, metadata: unknown) {
   const input = z
     .object({
       name: z.string().trim().min(1).max(100),
-      kind: z.enum(["image", "audio"]),
+      kind: z.enum(["image", "audio", "video"]),
       provenance: z.string().trim().min(1).max(1000),
     })
     .parse(metadata);
@@ -104,7 +113,9 @@ export async function importAsset(bytes: Uint8Array, metadata: unknown) {
     let duration: number | null = null;
     let width: number | null = null,
       height: number | null = null;
-    if (input.kind === "image") {
+    if (input.kind === "video") {
+      ({ mime, duration, width, height } = inspectVideoUpload(bytes, info));
+    } else if (input.kind === "image") {
       const hex = Buffer.from(bytes.slice(0, 12)).toString("hex");
       mime = isGif
         ? "image/gif"

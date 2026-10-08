@@ -5,14 +5,23 @@ Last updated: 2026-10-08.
 ## Current state
 
 - Repository: `/Users/moyezrabbani/Development/Projects/sabr-and-steps`.
-- Checkout: `main`. Verified editor completion commit `5b578b4` and the earlier F013 work are integrated by fast-forward and pushed to GitHub. `main` and `codex/editor-completion` were synchronized using the verified `moyezr` account; this final handoff update follows in a documentation commit.
-- Passing: H001, F001–F003 and F008–F016. No implementation feature is active. F004/F005 require creator listening/aesthetic feedback; F006 requires exact-export pilot approval. F007 source support is implemented but real corpus acceptance is blocked. F017 full Qur’an access/reuse and F018 direct provider quota/dispatch remain blocked by documented external prerequisites. PLAN.md milestones 1–5 have technical editor delivery; this does not complete creator/publication acceptance.
+- Checkout: `codex/video-backgrounds`. F019 adds verified muted MP4 backgrounds. Earlier editor work is integrated on `main` and synchronized through `ce49333` using `moyezr`; the active GitHub account was restored and verified as `moyez-dev`. This new bounded implementation is local.
+- Passing: H001, F001–F003, F008–F016 and F019. No implementation feature is active. F004/F005 require creator listening/aesthetic feedback; F006 requires exact-export pilot approval. F007 source support is implemented but real corpus acceptance is blocked. F017 full Qur’an access/reuse and F018 direct provider quota/dispatch remain blocked by documented external prerequisites. PLAN.md milestones 1–5 have technical editor delivery; this does not complete creator/publication acceptance.
 - The connected editor exposes Idea, Script & sources, Voice & captions, Music, Backgrounds, Video, and Exports for existing and incomplete episodes.
 - Script models remain exactly `openai/gpt-5.6-luna` and `google/gemini-3.8-flash` through OpenRouter. Speech remains direct through configured providers with credit and rights checks.
 - PostgreSQL 17/pgvector runs locally on loopback port 55432. Provider outputs and final assets remain in the ignored local data directory.
 - The real production app is running at `http://127.0.0.1:3107` for creator review, with database migration 0011 applied. The existing “When waiting feels heavy” selection/media still opens saved and unchanged. Worker is stopped, no real queued/running/uncertain jobs remain, and temporary fixture servers/databases have been removed.
 
 ## Latest completed work
+
+### F019 — uploaded video backgrounds — 2026-10-08
+
+- The creator requested starting the next set of work. Selected one unblocked extension: creator-uploaded H.264 MP4 backgrounds, bounded to 30 MB, two minutes, 1920 pixels/1080p pixel area and 60 fps. Video library previews, whole-video selection, scene overrides, crop/zoom/dimming and independent orientation framing use the existing editor controls.
+- Composition v4 snapshots the inspected video kind/duration and original checksum. Older image/GIF snapshots remain readable; no database migration or dependency change is required. Clip audio is always muted. Whole-video clips loop continuously; scene clips restart at their cue boundary. Both preview and exports use the same EpisodeFilm. Descriptions and exact-export rights declarations now include video clips.
+- Actual disposable import/save/reload/render checks passed, including rejected inputs with no retained bytes, checksum tampering, range/suffix requests and complete MP4 decoding. Six short MP4s were produced across the checks, including browser-adjusted framing. Both-format PNG comparisons prove motion, exact loop repetition and correct scene-start time. Embedded tone audio is absent from silent exports.
+- Browser acceptance passed rejected upload retention, supported upload/source notes, scene/color selection, independent crop/zoom, save/reload, download and desktop/390×844 layouts without horizontal overflow. Testing found and fixed thumbnail sizing, stage labels, checklist wording and file-descriptor lifetime during range requests.
+- `pnpm check` passes 67 unit tests; all ten DB suites and production build pass. No provider inference, religious source import, publication render or real pilot approval occurred. The existing real episode remains revision 4 with its saved 148.1-second text-only Misty lake composition. The app was restarted on port 3107; worker remains stopped. Disposable fixture servers/DBs were removed, and evidence/media remain ignored.
+- Evidence and reproduction: [video backgrounds](docs/evidence/2026-10-08-video-backgrounds.md); D026 records the extension and compatibility boundary.
 
 ### Parallel editor completion — 2026-10-08
 
@@ -73,15 +82,17 @@ Last updated: 2026-10-08.
 
 ## Verification
 
-- `pnpm check`: harness, lint, TypeScript, and 64 unit tests pass.
+- `pnpm check`: harness, lint, TypeScript, and 67 unit tests pass.
 - `pnpm test:db`: all ten disposable database suites pass.
 - `pnpm build` and `git diff --check` pass.
 - The real database is migrated through 0011 with existing content/media preserved. The migration upgrade/repeat and content validity backfill are verified. Provider inference remains absent for F008–F013 except the separately labeled live F012 Luna check on 2026-10-08; F014 also has one bounded live Luna check. No live Gemini inference or new speech is claimed.
 
 ## Next bounded action
 
+The next unblocked editor extension is support for mixed Qur’an editions with explicit per-quotation attribution; source footnote explanations also remain deferred. Select and verify one bounded slice when implementation is requested.
+
 Use the Exports review controls to watch/listen to the actual 90–120-second pilot, record pronunciation/music/visual feedback and approve that exact export when appropriate. F004–F006 are not completed by technical fixtures.
 
 Supply approved Qur’an production access and translation-reuse evidence for F017, and a real reviewed hadith corpus or Sunnah API key for F007. Current Qur’an access remains chapters 1–2 (293 verses); neither source’s publication rights are cleared. For F018, provide verified eligible grant/pricing/rights and required balance-read access before implementing/dispatching direct Cartesia/Deepgram speech/STT. The current Deepgram key can list a project but cannot read its balance; Cartesia catalog access does not establish remaining credits.
 
-Video-file backgrounds, mixed Qur’an editions and source footnote explanations remain deferred extensions. No recurring job, permission request, provider fallback, publication render or video upload was created.
+Video-file backgrounds are delivered in F019. Mixed Qur’an editions and source footnote explanations remain deferred extensions. No recurring job, permission request, provider fallback, publication render or platform upload was created.

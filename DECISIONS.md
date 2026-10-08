@@ -78,7 +78,7 @@ Remotion requires normal React rather than the worker's `react-server` condition
 
 ## D016 — Bring-your-own media and optional narration
 
-**Creator request, 2026-09-15–16.** The studio should be a complete reusable workflow: creator images/GIFs and music, generated editable scripts, optional narration, saved previews, revisions, and downloadable exports. Building a large stock asset library is not the task. Video backgrounds are deferred.
+**Creator request, 2026-09-15–16.** The studio should be a complete reusable workflow: creator images/GIFs and music, generated editable scripts, optional narration, saved previews, revisions, and downloadable exports. Building a large stock asset library is not the task. Video backgrounds were deferred in the initial scope; F019/D026 now extends it.
 
 Composition v2 adds immutable, checksummed image/audio snapshots, image framing/dimming, music level/loop/fades, and narrated versus text-only mode. v1 remains readable. Text-only reading cards derive exact visible script words and quotation attribution at an adjustable reading speed; they have no fake voice take or provider dispatch. Voice/caption foreign keys are nullable only for this mode. Every save creates a new revision, even when returning to earlier settings; content checksums may repeat. Earlier exports remain downloadable.
 
@@ -138,7 +138,7 @@ The writing API has a bounded 512,000-character body allowance to accommodate th
 
 **Creator authorization, 2026-10-08.** The creator explicitly requested implementing all remaining items with parallel subagents. This supersedes the usual single-feature session boundary for this implementation. F014 tracks partial rewrites, F015 scene/media controls, F016 exact-revision review and format-specific export, and F007 verified hadith support. Each retains its own acceptance evidence; parallel development is not evidence of completion.
 
-File ownership separates writing, source ingestion, export/review, and composition/media controls. Shared schema changes are integrated in one reviewed migration by the primary agent. Existing immutable revisions and v1/v2 compositions remain readable. External corpus permission, publication rights, and creator listening/visual approval cannot be inferred from implementation or fixture tests; these remain explicit tracked prerequisites. Video-file backgrounds remain deferred beyond this image/GIF roadmap.
+File ownership separates writing, source ingestion, export/review, and composition/media controls. Shared schema changes are integrated in one reviewed migration by the primary agent. Existing immutable revisions and v1/v2 compositions remain readable. External corpus permission, publication rights, and creator listening/visual approval cannot be inferred from implementation or fixture tests; these remain explicit tracked prerequisites. Video-file backgrounds were deferred beyond this image/GIF roadmap and are now covered by F019/D026.
 
 ## D025 — Content validity, scene compositions, and exact export review
 
@@ -149,3 +149,11 @@ Composition v3 adds bounded scene overrides, immutable image snapshots, format-s
 Consolidated review is a separate immutable record tied to the completed export, composition checksum, and script/voice/caption checksums. It records explicit creator feedback and checklist decisions without mutating stage reviews or source/provider rights. Publication eligibility rechecks those independent rights and uploaded-media declarations. This implementation continues to render private watermarked drafts; eligibility is not an upload or a publication render.
 
 Canonical hadith quotations add an explicit source-kind tag and resolve from separately versioned, reviewed hadith records; absent tags continue to mean Qur’an. A script retains its one Qur’an-edition boundary and may include independently attributed hadith. Full reports preserve numbering, context, narrator, supplied grade authority and reuse status. Writing and advanced media request limits are bounded separately to accommodate supported full reports and scene controls; generic requests retain the smaller limit.
+
+## D026 — Muted uploaded clips as versioned backgrounds
+
+**Next bounded implementation requested by the creator, 2026-10-08.** F019 extends image/GIF backgrounds to uploaded H.264 MP4 clips. Content inspection enforces the existing 30 MB byte limit, a two-minute duration, 1920-pixel maximum side, 1080p pixel area and 60 fps. Eight-bit 4:2:0 video, one video stream and at most one audio stream are supported; all embedded clip audio stays muted. No transcoding, provider inference or publication render is introduced.
+
+Composition v4 snapshots an explicit video kind and duration in the existing visual asset fields. Prior schema versions retain their exact image/GIF behavior and cannot contain video snapshots. No DB migration is needed because asset kind and inspected dimensions/duration are already persisted. Whole-video clips use composition time even after returning from a scene override; explicit scene clips begin at the first composition frame within their cue and loop on scene-local time. Crop, zoom and dimming share the existing orientation-aware framing.
+
+Use installed Remotion 4.0.524 OffthreadVideo wrapped in Loop; inspect the installed trimming API before using current documentation for a later release. Official references: [OffthreadVideo](https://www.remotion.dev/docs/offthreadvideo), [Loop](https://www.remotion.dev/docs/loop). Both preview and rendering consume the same snapshot/component. Render checks original checksums, descriptions retain clip provenance, and exact-export uploaded-media declarations explicitly include video. Rights and creator pilot approval remain independent.

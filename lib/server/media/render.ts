@@ -77,7 +77,11 @@ export async function renderVideo(job: Job) {
     ...(data.sceneImages || []).map((scene) => [scene.image, "image"] as const),
   ] as const) {
     if (!snapshot) continue;
-    const a = await checkedAsset(snapshot.id, kind);
+    const assetKind =
+      kind === "image" && "kind" in snapshot && snapshot.kind === "video"
+        ? "video"
+        : kind;
+    const a = await checkedAsset(snapshot.id, assetKind);
     if (a.checksum !== snapshot.checksum)
       throw new Error("ASSET_CHECKSUM_MISMATCH");
     if (!assets.some((asset) => asset.url === snapshot.url))
@@ -205,7 +209,9 @@ export async function renderVideo(job: Job) {
       ? `AI narration: ${take.provider}, ${take.voiceName}, ${take.model}. ${data.attribution}`
       : "Text-only video · No AI narration.",
     ...(data.image
-      ? [`Background image: ${data.image.name}. ${data.image.provenance}`]
+      ? [
+          `Background ${data.image.kind === "video" ? "video (muted, looping)" : "image"}: ${data.image.name}. ${data.image.provenance}`,
+        ]
       : []),
     ...(data.music
       ? [`Background music: ${data.music.name}. ${data.music.provenance}`]
@@ -214,7 +220,7 @@ export async function renderVideo(job: Job) {
       .filter((scene) => scene.image)
       .map(
         (scene) =>
-          `Scene ${scene.cueIndex + 1} background: ${scene.image!.name}. ${scene.image!.provenance}`,
+          `Scene ${scene.cueIndex + 1} background: ${scene.image!.name}. ${scene.image!.provenance}${scene.image!.kind === "video" ? " Clip audio muted; loop starts at the scene boundary." : ""}`,
       ),
     "Translation reuse and speech rights must be cleared before publication.",
     "",

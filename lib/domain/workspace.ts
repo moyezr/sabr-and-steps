@@ -58,7 +58,7 @@ export type WorkspaceInput = {
     stale: boolean;
     data: {
       mode?: "narrated" | "text";
-      image?: { id: string } | null;
+      image?: { id: string; kind?: "video" } | null;
       music?: { id: string } | null;
       ambience: "none" | "soft-noise";
     };
@@ -126,7 +126,9 @@ export function summarizeWorkspace(
       ? { label: "Choose a background", tone: "empty" }
       : {
           label: composition.data.image
-            ? "Image selected"
+            ? composition.data.image.kind === "video"
+              ? "Video selected"
+              : "Image selected"
             : "Built-in background",
           tone: "ready",
         },

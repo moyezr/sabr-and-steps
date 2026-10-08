@@ -111,10 +111,9 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
     "media:volume",
     saved?.narrationVolume ?? 1,
   );
-  const [uploadKind, setUploadKind] = useWorkspaceBuffer<"image" | "audio">(
-    "media:uploadKind",
-    "image",
-  );
+  const [uploadKind, setUploadKind] = useWorkspaceBuffer<
+    "image" | "audio" | "video"
+  >("media:uploadKind", "image");
   const [uploadName, setUploadName, clearUploadName] = useWorkspaceBuffer(
     "media:uploadName",
     "",
@@ -316,6 +315,9 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
               name: a.name,
               provenance: a.provenance,
               mime: a.mime,
+              ...(a.kind === "video"
+                ? { kind: "video" as const, duration: a.duration }
+                : {}),
               width: a.width,
               height: a.height,
             }
@@ -325,7 +327,16 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
         (a) => a.id === musicId && a.kind === "audio",
       );
       liveData = compositionSchema.parse({
-        version: 3,
+        version: state.assets.some(
+          (a) =>
+            a.kind === "video" &&
+            (a.id === imageId ||
+              editorSettings.sceneOverrides.some(
+                (scene) => scene.imageId === a.id,
+              )),
+        )
+          ? 4
+          : 3,
         title: script.title,
         scriptChecksum: script.checksum,
         voiceChecksum: baseline?.voiceChecksum || "",
@@ -496,13 +507,18 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
         body: form,
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      if (!response.ok)
+        throw new Error(
+          result.error === "USE_H264_MP4_UP_TO_2_MIN_1920_PX_60_FPS"
+            ? "Use an H.264 MP4 up to 30 MB, 2 minutes, 1920 pixels and 60 fps."
+            : result.error,
+        );
       const fresh = await fetch(`/api/episodes/${state.episode.id}/media`);
       if (!fresh.ok) throw new Error("Could not refresh the asset library");
       setState(await fresh.json());
       await refreshWorkspace();
       if (!mounted.current) return;
-      if (uploadKind === "image") setImageId(result.id);
+      if (uploadKind !== "audio") setImageId(result.id);
       else setMusicId(result.id);
       if (
         latestDraft.current.uploadFile === uploadFile &&
@@ -1057,7 +1073,8 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
             <>
               <h2>Backgrounds</h2>
               <p className="muted">
-                Choose a color, or bring an image or GIF from your library.
+                Choose a color, or bring an image, GIF or muted video from your
+                library.
               </p>
               <label>
                 Background
@@ -1073,14 +1090,14 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                 </select>
               </label>
               <label>
-                Background image or GIF
+                Background image, GIF or video
                 <select
                   value={imageId}
                   onChange={(e) => setImageId(e.target.value)}
                 >
                   <option value="">Use the color background</option>
                   {state.assets
-                    .filter((a) => a.kind === "image")
+                    .filter((a) => a.kind === "image" || a.kind === "video")
                     .map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.name}
@@ -1091,9 +1108,9 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
               {imageId && (
                 <>
                   <label>
-                    Image darkness · {Math.round(imageDim * 100)}%
+                    Background darkness · {Math.round(imageDim * 100)}%
                     <input
-                      aria-label="Image darkness"
+                      aria-label="Background darkness"
                       type="range"
                       min="0.2"
                       max="0.85"
@@ -1164,8 +1181,10 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
             <>
               <section aria-label="Media library" className="asset-library">
                 {state.assets
-                  .filter(
-                    (a) => a.kind === (section === "music" ? "audio" : "image"),
+                  .filter((a) =>
+                    section === "music"
+                      ? a.kind === "audio"
+                      : a.kind === "image" || a.kind === "video",
                   )
                   .map((a) => (
                     <article key={a.id}>
@@ -1176,6 +1195,16 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                           height={90}
                           unoptimized
                           alt={a.name}
+                        />
+                      ) : a.kind === "video" ? (
+                        <video
+                          controls
+                          muted
+                          loop
+                          playsInline
+                          preload="metadata"
+                          src={a.url}
+                          aria-label={`Preview ${a.name}`}
                         />
                       ) : (
                         <audio
@@ -1189,7 +1218,7 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                         type="button"
                         className="text-link"
                         onClick={() =>
-                          a.kind === "image"
+                          a.kind !== "audio"
                             ? setImageId(a.id)
                             : setMusicId(a.id)
                         }
@@ -1214,6 +1243,7 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                     }}
                   >
                     <option value="image">Image or GIF</option>
+                    <option value="video">Video background · muted MP4</option>
                     <option value="audio">Background audio</option>
                   </select>
                 </label>
@@ -1225,11 +1255,20 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                     accept={
                       uploadKind === "image"
                         ? "image/jpeg,image/png,image/webp,image/gif"
-                        : "audio/mpeg,audio/wav,audio/mp4,.m4a"
+                        : uploadKind === "video"
+                          ? "video/mp4,.mp4"
+                          : "audio/mpeg,audio/wav,audio/mp4,.m4a"
                     }
                     onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
                   />
                 </label>
+                {uploadKind === "video" && (
+                  <p className="muted">
+                    H.264 MP4 · up to 30 MB, 2 minutes, 1920 pixels and 60 fps.
+                    Background clips loop with their audio muted; scene clips
+                    start at the scene boundary.
+                  </p>
+                )}
                 {uploadFile && (
                   <p className="muted">Selected: {uploadFile.name}</p>
                 )}
@@ -1252,9 +1291,9 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                   />
                 </label>
                 <p className="muted">
-                  JPEG, PNG, WebP, GIF · MP3, WAV, M4A · up to 30 MB. GIFs: up
-                  to 30 seconds; use a smaller size for longer animations.
-                  Credits are included in the exported description.
+                  JPEG, PNG, WebP, GIF · MP4 video · MP3, WAV, M4A · up to 30
+                  MB. GIFs: up to 30 seconds; use a smaller size for longer
+                  animations. Credits are included in the exported description.
                 </p>
                 <button
                   className="secondary-button"

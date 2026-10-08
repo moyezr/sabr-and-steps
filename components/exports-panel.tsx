@@ -295,8 +295,8 @@ function ExportControls({
                         setMediaRightsConfirmed(event.target.checked)
                       }
                     />
-                    I own or have permission to publish every uploaded image and
-                    audio track used here.
+                    I own or have permission to publish every uploaded image,
+                    video clip and audio track used here.
                   </label>
                   <label>
                     License or ownership notes

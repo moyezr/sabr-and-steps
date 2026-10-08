@@ -159,7 +159,7 @@ export function SceneEditor({
                   <option value="inherit">Whole-video background</option>
                   <option value="color">Color background</option>
                   {assets
-                    .filter((a) => a.kind === "image")
+                    .filter((a) => a.kind === "image" || a.kind === "video")
                     .map((a) => (
                       <option value={a.id} key={a.id}>
                         {a.name}
@@ -202,7 +202,7 @@ export function SceneEditor({
                 ? "Horizontal crop"
                 : key === "y"
                   ? "Vertical crop"
-                  : "Image zoom"}
+                  : "Background zoom"}
               <input
                 aria-label={`${orientation} ${key}`}
                 type="range"

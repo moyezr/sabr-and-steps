@@ -6,6 +6,7 @@ import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
 import { z } from "zod";
 import { compositionSchema } from "../lib/domain/media";
+import { assetRange } from "../lib/asset-range";
 import {
   exportFormatSchema,
   renderedFormats,
@@ -37,8 +38,26 @@ async function main() {
     }
     res.setHeader("Content-Type", asset.mime);
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Content-Length", asset.bytes.length);
-    res.end(asset.bytes);
+    res.setHeader("Accept-Ranges", "bytes");
+    const range = assetRange(req.headers.range, asset.bytes.length);
+    if (!range) {
+      res
+        .writeHead(416, { "Content-Range": `bytes */${asset.bytes.length}` })
+        .end();
+      return;
+    }
+    res.statusCode = range.status;
+    if (range.status === 206)
+      res.setHeader(
+        "Content-Range",
+        `bytes ${range.start}-${range.end}/${asset.bytes.length}`,
+      );
+    res.setHeader("Content-Length", range.end - range.start + 1);
+    res.end(
+      req.method === "HEAD"
+        ? undefined
+        : asset.bytes.subarray(range.start, range.end + 1),
+    );
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);

@@ -93,7 +93,7 @@ export async function saveComposition(episodeId: string, input: unknown) {
       throw new Error("SCRIPT_REVISION_CHANGED");
     const script = requestedScript;
     const imageAsset = data.imageId
-      ? await checkedAsset(data.imageId, "image")
+      ? await checkedAsset(data.imageId, "background")
       : null;
     const musicAsset = data.musicId
       ? await checkedAsset(data.musicId, "audio")
@@ -161,6 +161,9 @@ export async function saveComposition(episodeId: string, input: unknown) {
       checksum: a.checksum,
       name: a.name,
       provenance: a.provenance,
+      ...(a.kind === "video"
+        ? { kind: "video" as const, duration: a.duration }
+        : {}),
     });
     if (editorSettings) {
       const indices = editorSettings.sceneOverrides.map((s) => s.cueIndex);
@@ -184,7 +187,7 @@ export async function saveComposition(episodeId: string, input: unknown) {
             .filter((s) => s.imageId !== undefined)
             .map(async (scene) => {
               const asset = scene.imageId
-                ? await checkedAsset(scene.imageId, "image")
+                ? await checkedAsset(scene.imageId, "background")
                 : null;
               return {
                 cueIndex: scene.cueIndex,
@@ -201,7 +204,13 @@ export async function saveComposition(episodeId: string, input: unknown) {
         )
       : undefined;
     const composition = compositionSchema.parse({
-      version: editorSettings ? 3 : 2,
+      version:
+        imageAsset?.kind === "video" ||
+        sceneImages?.some((s) => s.image?.kind === "video")
+          ? 4
+          : editorSettings
+            ? 3
+            : 2,
       editorSettings,
       audioOffset:
         take && editorSettings ? editorSettings.openingSeconds : undefined,
