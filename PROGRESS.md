@@ -5,7 +5,7 @@ Last updated: 2026-10-08.
 ## Current state
 
 - Repository: `/Users/moyezrabbani/Development/Projects/sabr-and-steps`.
-- Working branch: `codex/editor-completion`, based on the pushed F013 work. The editor completion is verified locally; Git integration/synchronization is the remaining maintenance step for this session.
+- Checkout: `main`. Verified editor completion commit `5b578b4` and the earlier F013 work are integrated by fast-forward and pushed to GitHub. `main` and `codex/editor-completion` were synchronized using the verified `moyezr` account; this final handoff update follows in a documentation commit.
 - Passing: H001, F001–F003 and F008–F016. No implementation feature is active. F004/F005 require creator listening/aesthetic feedback; F006 requires exact-export pilot approval. F007 source support is implemented but real corpus acceptance is blocked. F017 full Qur’an access/reuse and F018 direct provider quota/dispatch remain blocked by documented external prerequisites. PLAN.md milestones 1–5 have technical editor delivery; this does not complete creator/publication acceptance.
 - The connected editor exposes Idea, Script & sources, Voice & captions, Music, Backgrounds, Video, and Exports for existing and incomplete episodes.
 - Script models remain exactly `openai/gpt-5.6-luna` and `google/gemini-3.8-flash` through OpenRouter. Speech remains direct through configured providers with credit and rights checks.
@@ -15,6 +15,8 @@ Last updated: 2026-10-08.
 ## Latest completed work
 
 ### Parallel editor completion — 2026-10-08
+
+- Committed verified implementation as `5b578b4`, fast-forwarded `main` including the previously pending F013 work, and atomically pushed `main` and `codex/editor-completion`. The first attempt used another cached account and was rejected without changing the remote; explicit `moyezr` credentials then passed identity verification and synchronized both refs. Credentials and all generated media/evidence remain ignored.
 
 - The creator explicitly requested all remaining implementation with subagents. F014 rewrites, F015 scenes/media controls, F016 format-specific exports/exact-export review, and F007 source paths were integrated with one reviewed additive migration. D024/D025 record scope and architecture.
 - Targeted alternatives retain either permitted model and immutable input. Explicit acceptance preserves later text, uses autosave/undo, and leaves canonical quotations intact. Scene/caption/media controls save versioned data shared by live preview and render. Model/orientation preferences preserve valid narration through separate content validity.
