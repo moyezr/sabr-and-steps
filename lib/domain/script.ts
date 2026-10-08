@@ -32,6 +32,7 @@ export const scriptBlockSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("quote"),
+      sourceKind: z.literal("hadith").optional(),
       text: z.string().min(1),
       sourceId: z.string().uuid(),
       reference: z.string(),
@@ -100,7 +101,9 @@ export function narrationText(blocks: ScriptBlock[]) {
   return blocks
     .map((b) =>
       b.kind === "quote"
-        ? `In a translation of the Quran, chapter ${b.reference.split(":")[0]}, verse ${b.reference.split(":")[1]}: ${b.text}`
+        ? b.sourceKind === "hadith"
+          ? `In a translated hadith, ${b.reference}: ${b.text}`
+          : `In a translation of the Quran, chapter ${b.reference.split(":")[0]}, verse ${b.reference.split(":")[1]}: ${b.text}`
         : b.text,
     )
     .join("\n\n");

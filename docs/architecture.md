@@ -1,6 +1,6 @@
 # Architecture
 
-Status: episode CRUD, source ingestion/browser, remote retrieval and editable AI drafts are verified. Durable jobs, ElevenLabs quota/rights checks, narration/timing, and shared Remotion preview/export are implemented and undergoing pilot verification. Cartesia/Deepgram speech dispatch and publication review remain pending. See PROGRESS for live versus fixture evidence.
+Status: episode CRUD, source ingestion/browser, remote retrieval and editable AI drafts are verified. Durable jobs, ElevenLabs quota/rights checks, narration/timing, and shared Remotion preview/export are implemented and undergoing pilot verification. Retained partial rewrites, hadith import/inspection, composition v3 scene controls, format-specific exports and consolidated exact-revision review are implemented. Creator pilot acceptance and Cartesia/Deepgram quota/dispatch remain pending. See PROGRESS for live versus fixture evidence.
 
 ## Boundaries
 
@@ -35,7 +35,7 @@ The mounted episode workspace keeps a bounded client-only script undo/redo stack
 
 ## Data design
 
-Implemented entities: Episode, EpisodeWorkspaceState, EpisodeScriptDraft, SourceImport, SourcePassage, EmbeddingIndex, PassageEmbedding, QueryEmbedding, ScriptRevision, IdeaSuggestionSet, Job, ProviderUsage, VoiceTake, CaptionTrack, Composition, and VideoExport. Review state currently exists on script/media records; full final-review workflow remains pending. See [source import details](sources.md).
+Implemented entities: Episode, EpisodeWorkspaceState, EpisodeScriptDraft, SourceImport, SourcePassage, EmbeddingIndex, PassageEmbedding, QueryEmbedding, ScriptRevision, ScriptRewriteSuggestion, HadithImport, HadithPassage, IdeaSuggestionSet, Job, ProviderUsage, VoiceTake, CaptionTrack, Composition, CompositionReview, and VideoExport. Consolidated reviews record the exact completed export and dependency checksums; creator approval and external rights remain independent. See [source import details](sources.md).
 
 - Editions carry publisher/translator, resource ID, URL, import date, rights notes, and version/checksum. Passages retain canonical references and text.
 - Embeddings reference a source version and model, dimensions, and preprocessing revision. A model/configuration change creates a new index generation; never mix incompatible vector spaces.
@@ -71,3 +71,11 @@ Two layout profiles adapt wrapping, source placement, and type size while keepin
 ## Implemented infrastructure
 
 Compose runs the project database on loopback port 55432 using `pgvector/pgvector:0.8.2-pg17` and a persistent named volume. Drizzle migrations create the episode table and pgvector extension. `pnpm test:db` exercises the real database using a disposable database. The foreground source worker runs through `pnpm sources:import`; `pnpm worker` processes durable drafting, narration, and rendering jobs. Remotion runs in an awaited child process with normal React; the parent worker uses React server conditions for server-only modules. Each render attempt writes to a lease-owner directory, then the worker verifies ownership, dimensions, audio, duration and checksums before registering exports.
+
+## Scene and review extensions
+
+Composition v3 saves validated scene image snapshots, format-specific crop/zoom, typography, reading durations, opening/closing cards and trimmed music with separate fades and narration ducking. The live edited preview and render share EpisodeFilm; unchanged v1/v2 previews retain exact historical data. Caption restructuring preserves normalized words and citation metadata. Every saved timing/composition remains immutable.
+
+Episode contentRevision separates script validity from optimistic form revision so request-model/orientation preferences preserve valid narration. Rewrite jobs snapshot exact reflection ranges; retained alternatives apply only through explicit local edits and optimistic autosave. Hadith quotations resolve from separate reviewed, versioned records while Qur’an identity checks remain unchanged.
+
+Render enqueue records the selected composition checksum and requested formats. The worker validates saved dependencies and local hashes independently of later workspace selection. Consolidated review ties feedback/checklist/rights declarations to a completed exact export and never implicitly clears source or speech rights.

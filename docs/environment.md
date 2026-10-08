@@ -24,11 +24,12 @@ pnpm dev --hostname 127.0.0.1
 | `OPENROUTER_API_KEY` | The two selected LLMs through OpenRouter | Added by creator; key presence checked |
 | `ELEVEN_LABS_API_KEY` | Direct ElevenLabs speech | Added; preserve this exact spelling |
 | `DEEPGRAM_API_KEY` | Direct transcription/narration | Added |
-| `CARTESIA_API_KEY` | Direct narration | Added |
+| `CARTESIA_API_KEY` | Direct narration | Added; catalog access verified, eligible quota/rights unknown |
+| `CARTESIA_ADMIN_API_KEY` | Optional read-only usage reporting | Absent; usage is not remaining eligible quota |
 | `QF_CLIENT_ID`, `QF_CLIENT_SECRET` | Quran Foundation backend/server app | Added |
 | `SUNNAH_API_KEY` | Hadith importer | Request filed; response pending |
 
-The Providers screen reports key presence, not current authentication, balance, or commercial entitlement. Quran Foundation authentication and import results are separately verified and recorded in Sources; OpenRouter retrieval/draft generation is verified. The Studio performs authenticated ElevenLabs quota/voice reads; live narration is still awaiting the provider choice. [Provider policy](providers.md) explains how actual credits and usage rights will gate requests. No separate OpenAI credential is needed.
+The Providers screen reports key presence, not current authentication, balance, or commercial entitlement. Quran Foundation authentication and import results are separately verified and recorded in Sources; OpenRouter retrieval/draft generation is verified. The Studio performs authenticated ElevenLabs quota/voice reads; a real private ElevenLabs take is retained; creator listening acceptance remains pending. [Provider policy](providers.md) explains how actual credits and usage rights will gate requests. No separate OpenAI credential is needed.
 
 Source accounts: [OpenRouter keys](https://openrouter.ai/settings/keys), [Quran Foundation console](https://dev-console.quran.foundation/), [Sunnah.com developer process](https://sunnah.com/developers).
 

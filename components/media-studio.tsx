@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -7,7 +8,23 @@ import {
   useWorkspaceDraft,
   useWorkspaceBuffer,
 } from "./episode-workspace";
-import { Player } from "@remotion/player";
+import { Player, type PlayerRef } from "@remotion/player";
+import { SceneEditor } from "./scene-editor";
+import { ExportsPanel } from "./exports-panel";
+import {
+  editorSettingsSchema,
+  editorSettingsKey,
+  defaultEditorSettings,
+  retimeReadingCues,
+  splitCue,
+  mergeCue,
+  type EditorSettings,
+} from "@/lib/domain/scene-settings";
+import {
+  readingCues,
+  compositionSchema,
+  type CompositionData,
+} from "@/lib/domain/media";
 import type { MediaState } from "@/lib/server/media/state";
 import { EpisodeFilm } from "@/video/episode-film";
 import type { Cue } from "@/lib/domain/media";
@@ -32,6 +49,27 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
   const saved = initial.compositions.find(
     (item) => item.id === initial.selectedCompositionId,
   )?.data;
+  function settingsFor(data?: CompositionData): EditorSettings {
+    if (data?.editorSettings)
+      return editorSettingsSchema.parse(data.editorSettings);
+    const defaults = defaultEditorSettings();
+    return {
+      ...defaults,
+      openingSeconds: data?.mode === "text" ? 0.5 : 0,
+      musicFadeIn: data?.musicFade ?? 3,
+      musicFadeOut: data?.musicFade ?? 3,
+      framing: {
+        landscape: { x: data?.imagePosition ?? 50, y: 50, zoom: 1 },
+        vertical: { x: data?.imagePosition ?? 50, y: 50, zoom: 1 },
+      },
+    };
+  }
+  const [editorSettings, setEditorSettings, clearEditorSettings] =
+    useWorkspaceBuffer<EditorSettings>(
+      "media:editorSettings",
+      settingsFor(saved),
+    );
+  const playerRef = useRef<PlayerRef>(null);
   const [mode, setMode, clearMode] = useWorkspaceBuffer<"narrated" | "text">(
     "media:mode",
     saved?.mode || "narrated",
@@ -90,6 +128,11 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
   const [voice, setVoice] = useWorkspaceBuffer("media:voice", "");
   const [override, setOverride] = useWorkspaceBuffer("media:override", false);
   const [speed, setSpeed] = useWorkspaceBuffer("media:speed", 1);
+  const [stability, setStability] = useWorkspaceBuffer("media:stability", 0.65);
+  const [similarity, setSimilarity] = useWorkspaceBuffer(
+    "media:similarity",
+    0.75,
+  );
   const [reviewMode, setReviewMode] = useWorkspaceBuffer<
     "stages" | "consolidated"
   >("media:reviewMode", "consolidated");
@@ -101,6 +144,7 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
   const [state, setState] = useState(initial);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [reviewDirty, setReviewDirty] = useState(false);
   const [voices, setVoices] = useState<Voices | null>(null);
   const mounted = useRef(true);
   useEffect(() => {
@@ -121,6 +165,7 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
     musicFade,
     background,
     volume,
+    editorSettings,
   });
   const latestDraft = useRef({
     settingsSnapshot,
@@ -154,12 +199,10 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
     selectedTrack = state.tracks.find(
       (t) => t.id === state.selectedCaptionTrackId,
     ),
-    track =
-      selectedTrack?.voiceTakeId === take?.id ? selectedTrack : undefined,
+    track = selectedTrack?.voiceTakeId === take?.id ? selectedTrack : undefined,
     composition = state.compositions.find(
       (item) => item.id === state.selectedCompositionId,
-    ),
-    output = state.exports.find((e) => e.compositionId === composition?.id);
+    );
   const takeHistory = state.takes.filter(
     (item) => item.scriptId === script?.id,
   );
@@ -179,19 +222,24 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
     (baseline?.musicVolume ?? 0.2) !== musicVolume ||
     (baseline?.musicLoop ?? true) !== musicLoop ||
     (baseline?.musicFade ?? 3) !== musicFade ||
-    (baseline?.readingWpm ?? 110) !== readingWpm;
+    (baseline?.readingWpm ?? 110) !== readingWpm ||
+    editorSettingsKey(settingsFor(baseline)) !==
+      editorSettingsKey(editorSettings);
   const narrationSetupDirty =
     mode === "narrated" &&
     (voice !== "" ||
       override ||
       speed !== 1 ||
+      stability !== 0.65 ||
+      similarity !== 0.75 ||
       reviewMode !== "consolidated");
   useWorkspaceDraft({
     dirty:
       settingsDirty ||
       narrationSetupDirty ||
       Boolean(timing) ||
-      Boolean(uploadFile || uploadName || provenance),
+      Boolean(uploadFile || uploadName || provenance) ||
+      (section === "exports" && reviewDirty),
     saving: busy,
   });
   const cues =
@@ -238,6 +286,103 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
     setMusicFade(data.musicFade ?? 3);
     setBackground(data.background);
     setVolume(data.narrationVolume ?? 1);
+    setEditorSettings(settingsFor(data));
+  }
+  let liveData: CompositionData | undefined;
+  let previewError = "";
+  try {
+    if (
+      script &&
+      (mode === "text" || (take && track && !take.stale && !track.stale))
+    ) {
+      const liveCues =
+        mode === "text"
+          ? retimeReadingCues(
+              readingCues(script.blocks, readingWpm),
+              editorSettings,
+            )
+          : cues.map((c) => ({
+              ...c,
+              start: c.start + editorSettings.openingSeconds,
+              end: c.end + editorSettings.openingSeconds,
+            }));
+      const assetSnapshot = (id: string) => {
+        const a = state.assets.find((item) => item.id === id);
+        return a
+          ? {
+              id: a.id,
+              url: a.url,
+              checksum: a.checksum,
+              name: a.name,
+              provenance: a.provenance,
+              mime: a.mime,
+              width: a.width,
+              height: a.height,
+            }
+          : null;
+      };
+      const music = state.assets.find(
+        (a) => a.id === musicId && a.kind === "audio",
+      );
+      liveData = compositionSchema.parse({
+        version: 3,
+        title: script.title,
+        scriptChecksum: script.checksum,
+        voiceChecksum: baseline?.voiceChecksum || "",
+        captionChecksum: baseline?.captionChecksum || "",
+        duration:
+          (mode === "text"
+            ? liveCues[liveCues.length - 1].end
+            : take!.duration + editorSettings.openingSeconds) +
+          editorSettings.closingSeconds,
+        fps: 30,
+        cues: liveCues,
+        audioUrl: mode === "narrated" ? take!.audioUrl : "",
+        audioOffset: mode === "narrated" ? editorSettings.openingSeconds : 0,
+        background,
+        ambience: "none",
+        ambienceVolume: 0,
+        narrationVolume: volume,
+        mode,
+        readingWpm,
+        image: imageId ? assetSnapshot(imageId) : null,
+        imageDim,
+        imagePosition,
+        music: music
+          ? { ...assetSnapshot(music.id), duration: music.duration }
+          : null,
+        musicVolume,
+        musicLoop,
+        musicFade,
+        editorSettings,
+        sceneImages: editorSettings.sceneOverrides
+          .filter((s) => s.imageId !== undefined)
+          .map((s) => ({
+            cueIndex: s.cueIndex,
+            image: s.imageId ? assetSnapshot(s.imageId) : null,
+          })),
+        draft: true,
+        attribution:
+          baseline?.attribution ||
+          "Original reflection · Sources attributed on screen",
+      });
+    }
+  } catch {
+    previewError =
+      "Check reading durations and media settings before previewing or saving.";
+  }
+  if (!settingsDirty && !timing && preview && !preview.stale)
+    liveData = preview.data;
+  const timelineCues = liveData?.cues || preview?.data.cues || [];
+  const previewDirty =
+    settingsDirty || Boolean(timing) || !preview || preview.stale;
+  function seekPreview(seconds: number) {
+    const cue = timelineCues.find(
+      (item) => Math.abs(item.start - seconds) < 0.001,
+    );
+    // Seek into the fade so a paused scene selection shows its words immediately.
+    const offset = cue ? Math.min(0.12, (cue.end - cue.start) / 2) : 0;
+    playerRef.current?.seekTo(Math.round((seconds + offset) * 30));
   }
   async function refreshMedia() {
     setBusy(true);
@@ -298,12 +443,35 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
         clearMusicFade();
         clearBackground();
         clearVolume();
+        clearEditorSettings();
       }
-      if (action === "timing" && latestDraft.current.timing === timing) {
-        setTiming(null);
-        clearTiming();
+      if (action === "timing") {
+        const newerTiming = latestDraft.current.timing;
+        if (newerTiming === timing) {
+          setTiming(null);
+          clearTiming();
+        } else if (newerTiming && next.selectedCaptionTrackId)
+          setTiming({ ...newerTiming, id: next.selectedCaptionTrackId });
+        const normalize = (items: Cue[]) =>
+          items.map((c) => c.text.trim().split(/\s+/).join(" ")).join("|cue|");
+        const boundariesChanged =
+          timing && normalize(timing.cues) !== normalize(track?.cues || []);
+        if (
+          boundariesChanged &&
+          latestDraft.current.settingsSnapshot === settingsSnapshot
+        )
+          setEditorSettings({
+            ...editorSettings,
+            sceneOverrides: [],
+            cardDurations: [],
+          });
       }
       if (action === "selectVoice" || action === "selectCaption") {
+        setEditorSettings({
+          ...editorSettings,
+          sceneOverrides: [],
+          cardDurations: [],
+        });
         setTiming(null);
         clearTiming();
       }
@@ -430,7 +598,14 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                       max="180"
                       step="5"
                       value={readingWpm}
-                      onChange={(e) => setReadingWpm(Number(e.target.value))}
+                      onChange={(e) => {
+                        setReadingWpm(Number(e.target.value));
+                        setEditorSettings({
+                          ...editorSettings,
+                          cardDurations: [],
+                          sceneOverrides: [],
+                        });
+                      }}
                     />
                   </label>
                 </>
@@ -522,6 +697,32 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                           onChange={(e) => setSpeed(Number(e.target.value))}
                         />
                       </label>
+                      <label>
+                        Delivery steadiness · {Math.round(stability * 100)}%
+                        <input
+                          aria-label="Delivery steadiness"
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={stability}
+                          onChange={(e) => setStability(Number(e.target.value))}
+                        />
+                      </label>
+                      <label>
+                        Voice similarity · {Math.round(similarity * 100)}%
+                        <input
+                          aria-label="Voice similarity"
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={similarity}
+                          onChange={(e) =>
+                            setSimilarity(Number(e.target.value))
+                          }
+                        />
+                      </label>
                       {!["auto", "elevenlabs"].includes(
                         state.episode.narrationProvider,
                       ) && (
@@ -556,8 +757,8 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                             voiceId: voice,
                             settings: {
                               speed,
-                              stability: 0.65,
-                              similarity_boost: 0.75,
+                              stability,
+                              similarity_boost: similarity,
                             },
                             purpose: "audition",
                             reviewMode,
@@ -588,7 +789,10 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                     </div>
                   )}
                   {takeHistory.length > 0 && (
-                    <section className="media-history" aria-label="Voice take history">
+                    <section
+                      className="media-history"
+                      aria-label="Voice take history"
+                    >
                       <div className="media-history-heading">
                         <h3>Voice take history</h3>
                         <span>{takeHistory.length} takes</span>
@@ -638,7 +842,9 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                       {captionHistory.map((item, index) => (
                         <div className="media-history-row" key={item.id}>
                           <div>
-                            <strong>Timing {captionHistory.length - index}</strong>
+                            <strong>
+                              Timing {captionHistory.length - index}
+                            </strong>
                             {item.id === state.selectedCaptionTrackId && (
                               <span className="selected-pill">Selected</span>
                             )}
@@ -733,10 +939,94 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                           />
                         </label>
                         <span>
-                          {c.text}
+                          <button
+                            type="button"
+                            className="text-link"
+                            onClick={() =>
+                              seekPreview(
+                                c.start + editorSettings.openingSeconds,
+                              )
+                            }
+                          >
+                            {c.text}
+                          </button>
                           {c.kind === "quote" && (
-                            <small>Qur’an {c.reference}</small>
+                            <small>
+                              {c.sourceKind === "hadith" ? "Hadith" : "Qur’an"}{" "}
+                              {c.reference}
+                            </small>
                           )}
+                          <label>
+                            Line breaks
+                            <textarea
+                              aria-label={`Caption ${i + 1} line breaks`}
+                              value={c.text}
+                              maxLength={300}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (value.split(/\r?\n/).length > 6) {
+                                  setError("Use six caption lines or fewer.");
+                                  return;
+                                }
+                                if (
+                                  value.trim().split(/\s+/).join(" ") ===
+                                  c.text.trim().split(/\s+/).join(" ")
+                                )
+                                  setTiming({
+                                    id: track.id,
+                                    cues: cues.map((item, n) =>
+                                      n === i ? { ...item, text: value } : item,
+                                    ),
+                                  });
+                              }}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            disabled={c.text.trim().split(/\s+/).length < 2}
+                            onClick={() => {
+                              try {
+                                setTiming({
+                                  id: track.id,
+                                  cues: splitCue(
+                                    cues,
+                                    i,
+                                    Math.ceil(
+                                      c.text.trim().split(/\s+/).length / 2,
+                                    ),
+                                  ),
+                                });
+                              } catch (e) {
+                                setError(
+                                  e instanceof Error
+                                    ? e.message
+                                    : "Cannot split caption",
+                                );
+                              }
+                            }}
+                          >
+                            Split phrase
+                          </button>
+                          <button
+                            type="button"
+                            disabled={i === cues.length - 1}
+                            onClick={() => {
+                              try {
+                                setTiming({
+                                  id: track.id,
+                                  cues: mergeCue(cues, i),
+                                });
+                              } catch (e) {
+                                setError(
+                                  e instanceof Error
+                                    ? e.message
+                                    : "Cannot merge captions",
+                                );
+                              }
+                            }}
+                          >
+                            Merge with next
+                          </button>
                         </span>
                       </div>
                     ))}
@@ -749,6 +1039,7 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                         voiceTakeId: take!.id,
                         parentId: track.id,
                         selectionRevision: state.selectionRevision,
+                        editedCues: cues,
                         changes: cues.map((c) => ({
                           start: c.start,
                           end: c.end,
@@ -811,22 +1102,6 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                       onChange={(e) => setImageDim(Number(e.target.value))}
                     />
                   </label>
-                  <label>
-                    Image framing · {imagePosition}%
-                    <input
-                      aria-label="Image framing"
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={imagePosition}
-                      onChange={(e) => setImagePosition(Number(e.target.value))}
-                    />
-                  </label>
-                  <p className="muted">
-                    Move the crop left or right; check the vertical preview for
-                    the best framing.
-                  </p>
                 </>
               )}
             </>
@@ -873,18 +1148,6 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                       onChange={(e) => setMusicVolume(Number(e.target.value))}
                     />
                   </label>
-                  <label>
-                    Music fade · {musicFade} seconds
-                    <input
-                      aria-label="Music fade"
-                      type="range"
-                      min="0"
-                      max="10"
-                      step="0.5"
-                      value={musicFade}
-                      onChange={(e) => setMusicFade(Number(e.target.value))}
-                    />
-                  </label>
                   <label className="check-label">
                     <input
                       type="checkbox"
@@ -899,6 +1162,46 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
           )}
           {(section === "music" || section === "background") && (
             <>
+              <section aria-label="Media library" className="asset-library">
+                {state.assets
+                  .filter(
+                    (a) => a.kind === (section === "music" ? "audio" : "image"),
+                  )
+                  .map((a) => (
+                    <article key={a.id}>
+                      {a.kind === "image" ? (
+                        <Image
+                          src={a.url}
+                          width={160}
+                          height={90}
+                          unoptimized
+                          alt={a.name}
+                        />
+                      ) : (
+                        <audio
+                          controls
+                          preload="none"
+                          src={a.url}
+                          aria-label={`Preview ${a.name}`}
+                        />
+                      )}
+                      <button
+                        type="button"
+                        className="text-link"
+                        onClick={() =>
+                          a.kind === "image"
+                            ? setImageId(a.id)
+                            : setMusicId(a.id)
+                        }
+                      >
+                        {a.name}
+                      </button>
+                      <p className="muted">
+                        {a.provenance || "No source notes recorded"}
+                      </p>
+                    </article>
+                  ))}
+              </section>
               <details className="asset-upload">
                 <summary>Add your own background or track</summary>
                 <label>
@@ -1000,115 +1303,31 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
               </dl>
               <p className="muted">
                 Use Voice & captions, Music, and Backgrounds to adjust the
-                video. The preview shows the saved revision.
+                video. Changes appear immediately; save a revision for export.
               </p>
             </>
           )}
+          {section !== "exports" && (
+            <SceneEditor
+              settings={editorSettings}
+              onChange={setEditorSettings}
+              cues={timelineCues}
+              assets={state.assets}
+              mode={mode}
+              section={section}
+              vertical={vertical}
+              busy={busy}
+              onSeek={seekPreview}
+            />
+          )}
           {section === "exports" && (
-            <>
-              <h2>Exports</h2>
-              <p>
-                Render the saved composition as landscape and vertical MP4s,
-                with captions and a source description.
-              </p>
-              {(!composition || composition.stale) && (
-                <p className="status-message">
-                  Save an up-to-date preview revision before rendering a new
-                  export. Earlier downloads remain available below.
-                </p>
-              )}
-              {composition && (
-                <button
-                  className="primary-button"
-                  disabled={
-                    busy ||
-                    active ||
-                    composition.stale ||
-                    settingsDirty ||
-                    Boolean(timing)
-                  }
-                  onClick={() =>
-                    void act("render", { compositionId: composition.id })
-                  }
-                >
-                  Render both draft videos
-                </button>
-              )}
-              {(settingsDirty || timing) && (
-                <p className="muted">
-                  Save your settings and caption timing before rendering.
-                </p>
-              )}
-              {state.exports.length === 0 && (
-                <p className="muted">
-                  No exports yet. Your completed files will appear here.
-                </p>
-              )}
-              {output && (
-                <div className="export-links">
-                  <h3>Your draft files</h3>
-                  {(
-                    ["landscape", "vertical", "srt", "description"] as const
-                  ).map((format) => (
-                    <a
-                      key={format}
-                      href={`/api/exports/${output.id}?format=${format}&download=1`}
-                    >
-                      {format === "srt"
-                        ? "Captions (SRT)"
-                        : format === "description"
-                          ? "Source description"
-                          : `${format === "landscape" ? "Landscape" : "Vertical"} MP4`}
-                    </a>
-                  ))}
-                  <p className="muted">
-                    Private review copies. Source reuse, narration rights, and
-                    creator approval are still required for publication.
-                  </p>
-                </div>
-              )}
-              {state.exports.length > 0 && (
-                <section className="export-history">
-                  <h3>Export history · {state.exports.length}</h3>
-                  <p className="muted">
-                    Each download keeps the picture, sound, and words from its
-                    saved revision.
-                  </p>
-                  {state.exports.map((e) => {
-                    const c = state.compositions.find(
-                      (candidate) => candidate.id === e.compositionId,
-                    );
-                    return (
-                      <div key={e.id} className="export-links">
-                        <strong>
-                          {c?.data.mode === "text" ? "Text only" : "Narrated"} ·{" "}
-                          {c?.data.image?.name || c?.data.background} ·{" "}
-                          {new Date(e.createdAt).toLocaleString()}
-                        </strong>
-                        <a
-                          href={`/api/exports/${e.id}?format=landscape&download=1`}
-                        >
-                          Landscape MP4
-                        </a>
-                        <a
-                          href={`/api/exports/${e.id}?format=vertical&download=1`}
-                        >
-                          Vertical MP4
-                        </a>
-                        <a href={`/api/exports/${e.id}?format=srt&download=1`}>
-                          Captions (SRT)
-                        </a>
-                        <a
-                          href={`/api/exports/${e.id}?format=description&download=1`}
-                        >
-                          Source description
-                        </a>
-                      </div>
-                    );
-                  })}
-                </section>
-              )}
-            </>
+            <ExportsPanel
+              state={state}
+              busy={busy}
+              dirty={settingsDirty || Boolean(timing)}
+              onDirtyChange={setReviewDirty}
+              onAction={act}
+            />
           )}
         </section>
         <section className="panel media-preview">
@@ -1126,15 +1345,19 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
               </button>
             </div>
           </div>
-          {settingsDirty && (
+          {previewDirty && (
             <p className="status-message" role="status">
-              Settings changed. Save a preview revision to update the picture
-              and sound.
+              Unsaved preview · Save a revision before rendering these changes.
             </p>
           )}
-          {preview ? (
+          {previewError && (
+            <p role="alert" className="status-message">
+              {previewError}
+            </p>
+          )}
+          {liveData ? (
             <>
-              {preview.stale && (
+              {preview?.stale && (
                 <p className="status-message">
                   This saved preview is outdated. Update the script, narration,
                   or timing as needed and save a new revision.
@@ -1144,10 +1367,11 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                 className={vertical ? "film-player vertical" : "film-player"}
               >
                 <Player
-                  key={`${preview.id}-${vertical}`}
+                  key={`${script?.id}-${vertical}`}
+                  ref={playerRef}
                   component={EpisodeFilm}
-                  inputProps={{ data: preview.data }}
-                  durationInFrames={Math.ceil(preview.data.duration * 30)}
+                  inputProps={{ data: liveData }}
+                  durationInFrames={Math.ceil(liveData.duration * 30)}
                   compositionWidth={vertical ? 1080 : 1920}
                   compositionHeight={vertical ? 1920 : 1080}
                   fps={30}
@@ -1156,11 +1380,11 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                 />
               </div>
               <p className="muted">
-                Saved revision ·{" "}
-                {preview.data.mode === "text" ? "Text only" : "Narrated"} ·{" "}
-                {preview.data.image?.name || preview.data.background} ·{" "}
-                {preview.data.duration.toFixed(1)} seconds. Both exports use
-                this composition.
+                {previewDirty ? "Unsaved preview" : "Saved settings"} ·{" "}
+                {liveData.mode === "text" ? "Text only" : "Narrated"} ·{" "}
+                {liveData.image?.name || liveData.background} ·{" "}
+                {liveData.duration.toFixed(1)} seconds. Both exports use this
+                composition.
               </p>
             </>
           ) : (
@@ -1201,6 +1425,8 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
               className="primary-button"
               disabled={
                 busy ||
+                Boolean(previewError) ||
+                (section === "exports" && reviewDirty) ||
                 !script ||
                 (mode === "narrated" &&
                   (!take ||
@@ -1226,6 +1452,7 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                   musicFade,
                   background,
                   narrationVolume: volume,
+                  editorSettings,
                 })
               }
             >
@@ -1261,6 +1488,7 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
                       busy ||
                       settingsDirty ||
                       Boolean(timing) ||
+                      (section === "exports" && reviewDirty) ||
                       item.id === state.selectedCompositionId
                     }
                     onClick={() =>

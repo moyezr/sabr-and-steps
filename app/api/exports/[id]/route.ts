@@ -37,6 +37,8 @@ export async function GET(
       ],
     };
     const [file, type, name] = files[kind.data];
+    if (!file)
+      return new Response("This format was not rendered", { status: 404 });
     return await serveAsset(
       request,
       file,

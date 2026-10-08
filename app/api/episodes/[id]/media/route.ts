@@ -6,7 +6,9 @@ import {
   saveComposition,
   validateCurrentComposition,
 } from "@/lib/server/media/composition";
-import { narrationInputSchema } from "@/lib/domain/media";
+import { narrationInputSchema, cueSchema } from "@/lib/domain/media";
+import { renderInputSchema } from "@/lib/domain/export-review";
+import { saveConsolidatedReview } from "@/lib/server/media/review";
 import {
   elevenAccountAvailability as elevenAccount,
   elevenVoices,
@@ -18,6 +20,7 @@ import {
   selectComposition,
   selectVoiceTake,
 } from "@/lib/server/media/selections";
+const MEDIA_BODY_LIMIT = 4_000_000;
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -65,10 +68,11 @@ export async function POST(
           "selectVoice",
           "selectCaption",
           "selectComposition",
+          "consolidatedReview",
         ]),
         data: z.unknown(),
       })
-      .parse(await readJson(request));
+      .parse(await readJson(request, MEDIA_BODY_LIMIT));
     const state = await mediaState(id);
     if (action === "narrate") {
       const input = narrationInputSchema.parse(data);
@@ -93,6 +97,7 @@ export async function POST(
           changes: z
             .array(z.object({ start: z.number(), end: z.number() }))
             .max(1000),
+          editedCues: z.array(cueSchema).min(1).max(1000).optional(),
         })
         .parse(data);
       if (!state.takes.some((t) => t.id === input.voiceTakeId))
@@ -103,19 +108,21 @@ export async function POST(
         input.parentId,
         input.selectionRevision,
         input.changes,
+        input.editedCues,
       );
     }
     if (action === "compose") await saveComposition(id, data);
     if (action === "render") {
-      const { compositionId } = z
-        .object({ compositionId: z.string().uuid() })
-        .parse(data);
+      const { compositionId, compositionChecksum, format } = renderInputSchema.parse(data);
       if (!state.compositions.some((c) => c.id === compositionId))
         throw new Error("COMPOSITION_NOT_FOUND");
-      await validateCurrentComposition(compositionId);
-      const job = await enqueueJob("render", { compositionId }, id);
+      const composition = await validateCurrentComposition(compositionId);
+      if (compositionChecksum && compositionChecksum !== composition.checksum)
+        throw new Error("COMPOSITION_REVISION_CHANGED");
+      const job = await enqueueJob("render", { compositionId, compositionChecksum: composition.checksum, format }, id);
       return Response.json({ jobId: job.id }, { status: 202 });
     }
+    if (action === "consolidatedReview") await saveConsolidatedReview(id, data);
     if (action === "retry") {
       const { jobId } = z.object({ jobId: z.string().uuid() }).parse(data);
       if (!state.jobs.some((j) => j.id === jobId))

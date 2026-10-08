@@ -111,7 +111,7 @@ export async function startManualDraft(episodeId: string, raw: unknown) {
         .insert(scriptRevisions)
         .values({
           episodeId,
-          episodeRevision: episode.revision,
+          episodeRevision: episode.contentRevision,
           importId: edition.id,
           indexId: null,
           model: "manual",
@@ -455,7 +455,7 @@ export async function checkpointWorkingDraft(episodeId: string, raw: unknown) {
         .insert(scriptRevisions)
         .values({
           episodeId,
-          episodeRevision: episode.revision,
+          episodeRevision: episode.contentRevision,
           parentId: base.id,
           importId: base.importId,
           indexId: base.indexId,
@@ -555,7 +555,7 @@ export async function restoreScriptVersion(episodeId: string, raw: unknown) {
         .insert(scriptRevisions)
         .values({
           episodeId,
-          episodeRevision: episode.revision,
+          episodeRevision: episode.contentRevision,
           parentId: target.id,
           importId: target.importId,
           indexId: target.indexId,

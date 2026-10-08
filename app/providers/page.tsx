@@ -6,6 +6,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { getProviderSetup } from "@/lib/server/providers/setup";
+import { ProviderDiagnostics } from "@/components/provider-diagnostics";
 
 export const dynamic = "force-dynamic";
 
@@ -103,8 +104,10 @@ export default function ProvidersPage() {
       </div>
       <div className="provider-footnote">
         Keys stay on the server. This page shows configuration status; it does
-        not make billable requests. Speech generation is a later stage.
+        not make billable requests. ElevenLabs auditions are available in Voice
+        & captions after fresh credit and rights checks.
       </div>
+      <ProviderDiagnostics />
     </>
   );
 }

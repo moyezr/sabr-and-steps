@@ -5,23 +5,43 @@ const exec = promisify(execFile);
 import { readFile, mkdir, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db/client";
-import { voiceTakes, scriptRevisions, videoExports } from "../db/schema";
+import {
+  voiceTakes,
+  scriptRevisions,
+  videoExports,
+  compositions,
+  jobs,
+} from "../db/schema";
 import { compositionSchema, toSrt } from "../../domain/media";
-import { scriptBlockSchema } from "../../domain/script";
+import { scriptBlockSchema, type ScriptBlock } from "../../domain/script";
 import { dataPath, writeArtifact } from "../jobs/files";
 import { type Job, progress, heartbeat } from "../jobs/store";
 import { validateCurrentComposition } from "./composition";
 import { checkedAsset } from "./assets";
 import { probeMedia } from "./probe";
+import { renderInputSchema, renderedFormats } from "../../domain/export-review";
+import { resolveHadithQuotes } from "../sources/hadith";
 export async function renderVideo(job: Job) {
-  const { compositionId } = z
-    .object({ compositionId: z.string().uuid() })
-    .parse(job.input);
+  const {
+    compositionId,
+    compositionChecksum,
+    format: requestedFormat,
+  } = renderInputSchema.parse(job.input);
   const db = getDb();
-  const c = await validateCurrentComposition(compositionId);
+  const c = compositionChecksum
+    ? (
+        await db
+          .select()
+          .from(compositions)
+          .where(eq(compositions.id, compositionId))
+      )[0]
+    : await validateCurrentComposition(compositionId);
+  if (!c) throw new Error("COMPOSITION_NOT_FOUND");
+  if (compositionChecksum && c.checksum !== compositionChecksum)
+    throw new Error("COMPOSITION_REVISION_CHANGED");
   if (job.episodeId !== c.episodeId) throw new Error("EPISODE_MISMATCH");
   const existing = (
     await db.select().from(videoExports).where(eq(videoExports.jobId, job.id))
@@ -54,17 +74,23 @@ export async function renderVideo(job: Job) {
   for (const [snapshot, kind] of [
     [data.image, "image"],
     [data.music, "audio"],
+    ...(data.sceneImages || []).map((scene) => [scene.image, "image"] as const),
   ] as const) {
     if (!snapshot) continue;
     const a = await checkedAsset(snapshot.id, kind);
     if (a.checksum !== snapshot.checksum)
       throw new Error("ASSET_CHECKSUM_MISMATCH");
-    assets.push({ url: snapshot.url, path: dataPath(a.path), mime: a.mime });
+    if (!assets.some((asset) => asset.url === snapshot.url))
+      assets.push({ url: snapshot.url, path: dataPath(a.path), mime: a.mime });
   }
   const relative = `exports/${c.id}/${job.id}`;
   const directory = dataPath(relative);
   await mkdir(directory, { recursive: true, mode: 0o700 });
-  await progress(job, "Rendering both formats from the shared composition");
+  const formats = renderedFormats(requestedFormat);
+  await progress(
+    job,
+    `Rendering ${requestedFormat} from the saved composition`,
+  );
   const attemptDirectory = dataPath(`render-attempts/${job.id}/${job.owner}`);
   const requestPath = `render-attempts/${job.id}/${job.owner}/request.json`;
   await writeArtifact(requestPath, {
@@ -72,6 +98,7 @@ export async function renderVideo(job: Job) {
     assets,
     outputDirectory: attemptDirectory,
     bundleDirectory: attemptDirectory + "/bundle",
+    format: requestedFormat,
   });
   try {
     await exec(
@@ -90,6 +117,11 @@ export async function renderVideo(job: Job) {
   await heartbeat(job);
   const metadata: Record<string, unknown> = {
     compositionChecksum: c.checksum,
+    compositionId: c.id,
+    scriptId: c.scriptId,
+    voiceTakeId: c.voiceTakeId,
+    captionTrackId: c.captionTrackId,
+    formats,
     voiceChecksum: data.voiceChecksum,
     imageChecksum: data.image?.checksum,
     musicChecksum: data.music?.checksum,
@@ -98,8 +130,9 @@ export async function renderVideo(job: Job) {
     remotion: "4.0.524",
     draft: true,
   };
-  for (const format of ["Landscape", "Vertical"] as const) {
-    const output = path.join(directory, `${format.toLowerCase()}.mp4`);
+  for (const orientation of formats) {
+    const format = orientation === "landscape" ? "Landscape" : "Vertical";
+    const output = path.join(directory, `${orientation}.mp4`);
     const info = await probeMedia(
       path.join(attemptDirectory, `${format.toLowerCase()}.mp4`),
     );
@@ -132,17 +165,40 @@ export async function renderVideo(job: Job) {
       .where(eq(scriptRevisions.id, c.scriptId))
   )[0];
   const blocks = z.array(scriptBlockSchema).parse(script.blocks);
-  const quotes = blocks.filter((b) => b.kind === "quote");
+  if (script.checksum !== data.scriptChecksum)
+    throw new Error("SCRIPT_CHECKSUM_MISMATCH");
+  const quotes = blocks.filter(
+    (b): b is Extract<ScriptBlock, { kind: "quote" }> =>
+      b.kind === "quote" && b.sourceKind !== "hadith",
+  );
+  const hadith = await resolveHadithQuotes(
+    db,
+    blocks.filter(
+      (block) => block.kind === "quote" && block.sourceKind === "hadith",
+    ),
+  );
   const description = [
     script.title,
     "",
-    "PRIVATE DRAFT — not cleared for publication. Creator review is pending.",
+    "PRIVATE DRAFT — not cleared for publication. Review records are tracked separately for this exact export.",
     "",
-    "An original reflection from Sabr & Steps, with a separately attributed Qur’an translation.",
+    "An original reflection from Sabr & Steps. Canonical quotations are separately attributed.",
     "",
     ...quotes.map(
       (q) =>
         `Qur’an ${q.reference} — ${q.edition}. https://quran.com/${q.reference.replace(":", "/")} (source version ${q.importId})`,
+    ),
+    ...hadith.map((source) =>
+      [
+        `Hadith ${source.reference} — ${source.collection}, ${source.numberingScheme}: ${source.hadithNumber}; book ${source.book}.`,
+        ...source.otherReferences.map(
+          (reference) =>
+            `Additional numbering: ${reference.scheme}: ${reference.value}.`,
+        ),
+        `Narrator: ${source.narrator || "not separately supplied"}.`,
+        `Grades as supplied: ${source.grades.length ? source.grades.map((grade) => `${grade.grade} (${grade.authority || "authority not supplied"})`).join("; ") : "not supplied"}.`,
+        `Translator: ${source.translator || "not supplied"}. Edition: ${source.edition}. ${source.sourceUrl} (source version ${source.importId})`,
+      ].join("\n"),
     ),
     "",
     take
@@ -154,6 +210,12 @@ export async function renderVideo(job: Job) {
     ...(data.music
       ? [`Background music: ${data.music.name}. ${data.music.provenance}`]
       : []),
+    ...(data.sceneImages || [])
+      .filter((scene) => scene.image)
+      .map(
+        (scene) =>
+          `Scene ${scene.cueIndex + 1} background: ${scene.image!.name}. ${scene.image!.provenance}`,
+      ),
     "Translation reuse and speech rights must be cleared before publication.",
     "",
     "Reflection transcript:",
@@ -166,20 +228,57 @@ export async function renderVideo(job: Job) {
     mode: 0o600,
   });
   await writeArtifact(`${relative}/metadata.json`, metadata);
-  await validateCurrentComposition(c.id);
-  const output = (
+  const unchanged = (
     await db
-      .insert(videoExports)
-      .values({
-        compositionId: c.id,
-        jobId: job.id,
-        landscapePath: `${relative}/landscape.mp4`,
-        verticalPath: `${relative}/vertical.mp4`,
-        srtPath: `${relative}/captions.srt`,
-        descriptionPath: `${relative}/description.txt`,
-        metadata,
-      })
-      .returning()
+      .select({ checksum: compositions.checksum })
+      .from(compositions)
+      .where(eq(compositions.id, c.id))
   )[0];
+  if (unchanged?.checksum !== c.checksum)
+    throw new Error("COMPOSITION_REVISION_CHANGED");
+  const output = await persistRenderedExport(job, {
+    compositionId: c.id,
+    jobId: job.id,
+    landscapePath: formats.includes("landscape")
+      ? `${relative}/landscape.mp4`
+      : "",
+    verticalPath: formats.includes("vertical")
+      ? `${relative}/vertical.mp4`
+      : "",
+    srtPath: `${relative}/captions.srt`,
+    descriptionPath: `${relative}/description.txt`,
+    metadata,
+  });
   return { exportId: output.id, compositionId: c.id };
+}
+
+/** Register only an output whose durable worker still owns a live lease. */
+export async function persistRenderedExport(
+  job: Job,
+  values: typeof videoExports.$inferInsert,
+) {
+  const owner = job.owner;
+  if (!owner || values.jobId !== job.id) throw new Error("JOB_LEASE_LOST");
+  return getDb().transaction(async (tx) => {
+    const [owned] = await tx
+      .select({ id: jobs.id })
+      .from(jobs)
+      .where(
+        and(
+          eq(jobs.id, job.id),
+          eq(jobs.status, "running"),
+          eq(jobs.kind, "render"),
+          eq(jobs.owner, owner),
+          sql`${jobs.leaseUntil} > now()`,
+        ),
+      )
+      .for("update");
+    if (!owned) throw new Error("JOB_LEASE_LOST");
+    const [existing] = await tx
+      .select()
+      .from(videoExports)
+      .where(eq(videoExports.jobId, job.id));
+    if (existing) return existing;
+    return (await tx.insert(videoExports).values(values).returning())[0];
+  });
 }

@@ -39,7 +39,7 @@ export async function createNarration(job: Job) {
   const episode = (
     await db.select().from(episodes).where(eq(episodes.id, script.episodeId))
   )[0];
-  if (!episode || episode.revision !== script.episodeRevision)
+  if (!episode || episode.contentRevision !== script.episodeRevision)
     throw new Error("EPISODE_REVISION_CHANGED");
   const workspace = (
     await db
@@ -52,9 +52,9 @@ export async function createNarration(job: Job) {
     : (
         await db
           .select({ id: scriptRevisions.id })
-            .from(scriptRevisions)
-            .where(eq(scriptRevisions.episodeId, episode.id))
-            .orderBy(desc(scriptRevisions.createdAt), desc(scriptRevisions.id))
+          .from(scriptRevisions)
+          .where(eq(scriptRevisions.episodeId, episode.id))
+          .orderBy(desc(scriptRevisions.createdAt), desc(scriptRevisions.id))
           .limit(1)
       )[0];
   if ((workspace?.selectedScriptId || fallback?.id) !== script.id)
@@ -174,6 +174,7 @@ export async function saveCaptionTiming(
   parentId: string,
   selectionRevision: number,
   changes: { start: number; end: number }[],
+  editedCues?: import("../../domain/media").Cue[],
 ) {
   const db = getDb();
   return db.transaction(async (tx) => {
@@ -216,9 +217,15 @@ export async function saveCaptionTiming(
     if (!parent) throw new Error("CAPTION_REVISION_CONFLICT");
     const { cueSchema } = await import("../../domain/media");
     const cues = z.array(cueSchema).parse(parent.cues);
-    if (changes.length !== cues.length)
+    if (!editedCues && changes.length !== cues.length)
       throw new Error("CAPTION_COUNT_CHANGED");
-    const updated = cues.map((c, i) => ({ ...c, ...changes[i] }));
+    const updated = editedCues
+      ? z.array(cueSchema).min(1).max(1000).parse(editedCues)
+      : cues.map((c, i) => ({ ...c, ...changes[i] }));
+    const { validateCaptionRestructure } = await import(
+      "../../domain/scene-settings"
+    );
+    validateCaptionRestructure(cues, updated);
     validateCues(updated, take.duration);
     const saved = (
       await tx

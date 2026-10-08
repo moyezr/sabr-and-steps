@@ -39,7 +39,13 @@ export type EpisodeWorkspaceState = {
 
 /** A minimal read model; no provider payloads, source text, or asset paths. */
 export type WorkspaceInput = {
-  episode: { id: string; title: string; updatedAt: string; revision: number };
+  episode: {
+    id: string;
+    title: string;
+    updatedAt: string;
+    revision: number;
+    contentRevision?: number;
+  };
   selectedScriptId?: string | null;
   selectedVoiceTakeId?: string | null;
   selectedCaptionTrackId?: string | null;
@@ -78,7 +84,9 @@ export function summarizeWorkspace(
   );
   const textOnly = composition?.data.mode === "text";
   const scriptStale =
-    !!script && script.episodeRevision !== input.episode.revision;
+    !!script &&
+    script.episodeRevision !==
+      (input.episode.contentRevision ?? input.episode.revision);
   const currentExport =
     composition &&
     !composition.stale &&
@@ -161,7 +169,8 @@ export function summarizeWorkspace(
     const section = sectionForJob(job.kind);
     if (section) {
       // Several alternatives may be queued; do not hide an active generation.
-      if (stages[section].tone === "working" && job.status === "queued") continue;
+      if (stages[section].tone === "working" && job.status === "queued")
+        continue;
       stages[section] = {
         label: job.status === "queued" ? "Queued" : "Generating",
         tone: "working",

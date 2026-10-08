@@ -45,6 +45,7 @@ function blocksEqual(left: ScriptBlock, right: ScriptBlock) {
   if (left.kind === "reflection" || right.kind === "reflection") return true;
   return (
     left.sourceId === right.sourceId &&
+    left.sourceKind === right.sourceKind &&
     left.reference === right.reference &&
     left.edition === right.edition &&
     left.importId === right.importId
@@ -55,9 +56,7 @@ function snapshotsEqual(left: ScriptEditSnapshot, right: ScriptEditSnapshot) {
   return (
     left.title === right.title &&
     left.blocks.length === right.blocks.length &&
-    left.blocks.every((block, index) =>
-      blocksEqual(block, right.blocks[index]),
-    )
+    left.blocks.every((block, index) => blocksEqual(block, right.blocks[index]))
   );
 }
 
@@ -132,11 +131,7 @@ function comparisonAnchors(left: ScriptBlock[], right: ScriptBlock[]) {
     Array<number>(right.length + 1).fill(0),
   );
   for (let leftIndex = left.length - 1; leftIndex >= 0; leftIndex -= 1) {
-    for (
-      let rightIndex = right.length - 1;
-      rightIndex >= 0;
-      rightIndex -= 1
-    ) {
+    for (let rightIndex = right.length - 1; rightIndex >= 0; rightIndex -= 1) {
       lengths[leftIndex][rightIndex] = blocksEqual(
         left[leftIndex],
         right[rightIndex],
@@ -158,8 +153,7 @@ function comparisonAnchors(left: ScriptBlock[], right: ScriptBlock[]) {
       leftIndex += 1;
       rightIndex += 1;
     } else if (
-      lengths[leftIndex + 1][rightIndex] >=
-      lengths[leftIndex][rightIndex + 1]
+      lengths[leftIndex + 1][rightIndex] >= lengths[leftIndex][rightIndex + 1]
     ) {
       leftIndex += 1;
     } else {
@@ -188,7 +182,11 @@ function appendGap(
       rightIndex: rightStart + offset,
     });
   }
-  for (let leftIndex = leftStart + paired; leftIndex < leftEnd; leftIndex += 1) {
+  for (
+    let leftIndex = leftStart + paired;
+    leftIndex < leftEnd;
+    leftIndex += 1
+  ) {
     rows.push({
       status: "removed",
       left: cloneBlock(left[leftIndex]),

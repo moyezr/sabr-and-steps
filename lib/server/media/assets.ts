@@ -16,15 +16,30 @@ export async function listAssets() {
     .select()
     .from(mediaAssets)
     .orderBy(desc(mediaAssets.createdAt));
-  return assets.map(({ id, kind, name, duration, provenance, mime }) => ({
-    id,
-    kind,
-    mime,
-    name,
-    duration,
-    provenance,
-    url: `/api/assets/${id}`,
-  }));
+  return assets.map(
+    ({
+      id,
+      kind,
+      name,
+      duration,
+      provenance,
+      mime,
+      checksum,
+      width,
+      height,
+    }) => ({
+      id,
+      kind,
+      mime,
+      checksum,
+      width,
+      height,
+      name,
+      duration,
+      provenance,
+      url: `/api/assets/${id}`,
+    }),
+  );
 }
 export async function findAsset(id: string) {
   z.string().uuid().parse(id);

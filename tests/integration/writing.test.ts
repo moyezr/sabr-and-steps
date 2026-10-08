@@ -1026,9 +1026,9 @@ test("durable jobs claim once, recover safely, and script edits preserve canonic
     );
     const tooLarge = JSON.stringify({
       action: "autosave",
-      data: { privateMarker: "private-fixture".repeat(40_000) },
+      data: { privateMarker: "private-fixture".repeat(300_000) },
     });
-    assert(tooLarge.length > 512_000);
+    assert(tooLarge.length > 4_000_000);
     const largeResult = await writingPost(writingRequest(tooLarge), {
       params: Promise.resolve({ id: manualEpisode.id }),
     });

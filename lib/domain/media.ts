@@ -1,12 +1,22 @@
 import { z } from "zod";
 import { type ScriptBlock } from "./script";
+import { editorSettingsSchema } from "./scene-settings";
 export const cueSchema = z.object({
   start: z.number().finite().nonnegative(),
   end: z.number().finite().positive(),
-  text: z.string().min(1).max(300),
+  text: z
+    .string()
+    .min(1)
+    .max(300)
+    .refine(
+      (text) => text.split(/\r?\n/).length <= 6,
+      "Use six caption lines or fewer.",
+    ),
   kind: z.enum(["reflection", "quote"]),
   reference: z.string().optional(),
   edition: z.string().optional(),
+  sourceKind: z.enum(["hadith"]).optional(),
+  blockIndex: z.number().int().nonnegative().optional(),
 });
 export type Cue = z.infer<typeof cueSchema>;
 export const voiceSettingsSchema = z.object({
@@ -29,13 +39,17 @@ export function spokenSegments(blocks: ScriptBlock[]) {
   return blocks.map((b, index) => {
     const text =
       b.kind === "quote"
-        ? `In a translation of the Quran, chapter ${b.reference.split(":")[0]}, verse ${b.reference.split(":")[1]}: ${b.text}`
+        ? b.sourceKind === "hadith"
+          ? `In ${b.edition}, ${b.reference}: ${b.text}`
+          : `In a translation of the Quran, chapter ${b.reference.split(":")[0]}, verse ${b.reference.split(":")[1]}: ${b.text}`
         : b.text;
     const item = {
       start: offset,
       end: offset + text.length,
       text,
       kind: b.kind,
+      blockIndex: index,
+      sourceKind: b.kind === "quote" ? b.sourceKind : undefined,
       reference: b.kind === "quote" ? b.reference : undefined,
       edition: b.kind === "quote" ? b.edition : undefined,
     };
@@ -93,6 +107,8 @@ export function cuesFromAlignment(
           end: Math.max(end, start + 0.04),
           text: word[0],
           kind: segment.kind,
+          blockIndex: segment.blockIndex,
+          sourceKind: segment.sourceKind,
           reference: segment.reference,
           edition: segment.edition,
         };
@@ -134,54 +150,93 @@ export function toSrt(cues: Cue[]) {
     .map((c, i) => `${i + 1}\n${time(c.start)} --> ${time(c.end)}\n${c.text}\n`)
     .join("\n");
 }
-export const compositionSchema = z.object({
-  version: z.union([z.literal(1), z.literal(2)]),
-  title: z.string(),
-  scriptChecksum: z.string(),
-  voiceChecksum: z.string(),
-  captionChecksum: z.string(),
-  duration: z.number().positive().max(305),
-  fps: z.literal(30),
-  cues: z.array(cueSchema).min(1),
-  audioUrl: z.string(),
-  background: z.enum(["forest", "dusk", "sand"]),
-  ambience: z.enum(["none", "soft-noise"]),
-  ambienceVolume: z.number().min(0).max(0.15),
-  narrationVolume: z.number().min(0).max(1),
-  mode: z.enum(["narrated", "text"]).optional(),
-  readingWpm: z.number().min(70).max(180).optional(),
-  image: z
-    .object({
-      id: z.string().uuid(),
-      url: z.string(),
-      checksum: z.string(),
-      name: z.string(),
-      provenance: z.string(),
-      mime: z.string().optional(),
-      width: z.number().positive().nullable().optional(),
-      height: z.number().positive().nullable().optional(),
-    })
-    .nullable()
-    .optional(),
-  imageDim: z.number().min(0.2).max(0.85).optional(),
-  imagePosition: z.number().min(0).max(100).optional(),
-  music: z
-    .object({
-      id: z.string().uuid(),
-      url: z.string(),
-      checksum: z.string(),
-      name: z.string(),
-      provenance: z.string(),
-      duration: z.number().positive(),
-    })
-    .nullable()
-    .optional(),
-  musicVolume: z.number().min(0).max(1).optional(),
-  musicLoop: z.boolean().optional(),
-  musicFade: z.number().min(0).max(10).optional(),
-  draft: z.boolean(),
-  attribution: z.string(),
-});
+export const compositionSchema = z
+  .object({
+    version: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    editorSettings: editorSettingsSchema.optional(),
+    audioOffset: z.number().min(0).max(8).optional(),
+    sceneImages: z
+      .array(
+        z.object({
+          cueIndex: z.number().int().nonnegative(),
+          image: z
+            .object({
+              id: z.string().uuid(),
+              url: z.string(),
+              checksum: z.string(),
+              name: z.string(),
+              provenance: z.string(),
+              mime: z.string(),
+              width: z.number().positive().nullable(),
+              height: z.number().positive().nullable(),
+            })
+            .nullable(),
+        }),
+      )
+      .optional(),
+    title: z.string(),
+    scriptChecksum: z.string(),
+    voiceChecksum: z.string(),
+    captionChecksum: z.string(),
+    duration: z.number().positive().max(305),
+    fps: z.literal(30),
+    cues: z.array(cueSchema).min(1),
+    audioUrl: z.string(),
+    background: z.enum(["forest", "dusk", "sand"]),
+    ambience: z.enum(["none", "soft-noise"]),
+    ambienceVolume: z.number().min(0).max(0.15),
+    narrationVolume: z.number().min(0).max(1),
+    mode: z.enum(["narrated", "text"]).optional(),
+    readingWpm: z.number().min(70).max(180).optional(),
+    image: z
+      .object({
+        id: z.string().uuid(),
+        url: z.string(),
+        checksum: z.string(),
+        name: z.string(),
+        provenance: z.string(),
+        mime: z.string().optional(),
+        width: z.number().positive().nullable().optional(),
+        height: z.number().positive().nullable().optional(),
+      })
+      .nullable()
+      .optional(),
+    imageDim: z.number().min(0.2).max(0.85).optional(),
+    imagePosition: z.number().min(0).max(100).optional(),
+    music: z
+      .object({
+        id: z.string().uuid(),
+        url: z.string(),
+        checksum: z.string(),
+        name: z.string(),
+        provenance: z.string(),
+        duration: z.number().positive(),
+      })
+      .nullable()
+      .optional(),
+    musicVolume: z.number().min(0).max(1).optional(),
+    musicLoop: z.boolean().optional(),
+    musicFade: z.number().min(0).max(10).optional(),
+    draft: z.boolean(),
+    attribution: z.string(),
+  })
+  .superRefine((data, context) => {
+    if (data.editorSettings && data.music) {
+      const { musicStart, musicEnd } = data.editorSettings;
+      const end = musicEnd ?? data.music.duration;
+      if (
+        musicStart >= data.music.duration ||
+        end > data.music.duration ||
+        end - musicStart < 1 / data.fps
+      )
+        context.addIssue({
+          code: "custom",
+          path: ["editorSettings", "musicEnd"],
+          message:
+            "Choose a music range inside the track that is at least one frame long.",
+        });
+    }
+  });
 export type CompositionData = z.infer<typeof compositionSchema>;
 
 /** Reading cards use canonical visible text, without narration's spoken citation prefix. */
@@ -192,7 +247,7 @@ export function readingCues(
   z.number().min(70).max(180).parse(wordsPerMinute);
   const cues: Cue[] = [];
   let time = 0.5;
-  for (const block of blocks) {
+  for (const [blockIndex, block] of Array.from(blocks.entries())) {
     const words = block.text.trim().split(/\s+/);
     let phrase: string[] = [];
     const flush = () => {
@@ -203,8 +258,13 @@ export function readingCues(
         end: time + duration,
         text: phrase.join(" "),
         kind: block.kind,
+        blockIndex,
         ...(block.kind === "quote"
-          ? { reference: block.reference, edition: block.edition }
+          ? {
+              reference: block.reference,
+              edition: block.edition,
+              sourceKind: block.sourceKind,
+            }
           : {}),
       });
       time += duration;

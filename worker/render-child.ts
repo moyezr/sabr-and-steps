@@ -6,6 +6,10 @@ import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
 import { z } from "zod";
 import { compositionSchema } from "../lib/domain/media";
+import {
+  exportFormatSchema,
+  renderedFormats,
+} from "../lib/domain/export-review";
 async function main() {
   const request = z
     .object({
@@ -15,6 +19,7 @@ async function main() {
       ),
       outputDirectory: z.string(),
       bundleDirectory: z.string(),
+      format: exportFormatSchema.default("both"),
     })
     .parse(JSON.parse(await readFile(process.argv[2], "utf8")));
   const assets = new Map(
@@ -53,7 +58,8 @@ async function main() {
       data: request.data,
       assetBaseUrl: `http://127.0.0.1:${address.port}`,
     };
-    for (const id of ["Landscape", "Vertical"]) {
+    for (const format of renderedFormats(request.format)) {
+      const id = format === "landscape" ? "Landscape" : "Vertical";
       const composition = await selectComposition({ serveUrl, id, inputProps });
       let last = 0;
       await renderMedia({

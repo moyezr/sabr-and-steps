@@ -68,7 +68,9 @@ export default async function SourcesPage({
     <>
       <div className="page-topline">
         <span className="eyebrow">BEGIN WITH THE SOURCE</span>
-        <span className="local-label">Local source library</span>
+        <Link href="/sources/hadith" className="text-link">
+          Hadith source library
+        </Link>
       </div>
       <header className="page-heading">
         <div>

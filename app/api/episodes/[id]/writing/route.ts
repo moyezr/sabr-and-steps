@@ -14,8 +14,8 @@ import {
   startManualDraft,
 } from "@/lib/server/writing/versions";
 const idSchema = z.string().uuid();
-// Thirty full reflection blocks can expand sixfold when JSON escapes text.
-const WRITING_BODY_LIMIT = 512_000;
+// Thirty full canonical hadith reports can expand sixfold in JSON escapes.
+const WRITING_BODY_LIMIT = 4_000_000;
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },

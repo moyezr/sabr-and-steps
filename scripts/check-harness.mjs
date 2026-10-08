@@ -35,8 +35,12 @@ for (const feature of tracker.features) {
     assert(nonempty(feature.notes), `${feature.id}: document the blocker and recovery action in notes.`);
   }
 }
-assert(tracker.features.filter((feature) => feature.status === "in_progress").length <= 1,
-  "Only one feature may be in_progress; finish or hand off the active feature first.");
+const activeFeatures = tracker.features.filter((feature) => feature.status === "in_progress");
+if (activeFeatures.length > 1) {
+  const authorization = tracker.parallel_implementation;
+  assert(authorization && /^\d{4}-\d{2}-\d{2}$/.test(authorization.authorized_on) && nonempty(authorization.creator_instruction) && nonempty(authorization.decision), "Multiple active features require recorded explicit creator authorization.");
+  assert(authorization.owners && activeFeatures.every((feature) => nonempty(authorization.owners[feature.id])), "Every parallel active feature requires a named owner in the authorized scope.");
+}
 
 function markdownFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

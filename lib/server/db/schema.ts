@@ -29,6 +29,7 @@ export const episodes = pgTable(
     format: text("format").$type<EpisodeInput["format"]>().notNull(),
     purpose: text("purpose").$type<EpisodeInput["purpose"]>().notNull(),
     revision: integer("revision").notNull().default(1),
+    contentRevision: integer("content_revision").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -62,6 +63,10 @@ export const episodes = pgTable(
     ),
     check("episode_purpose", sql`${table.purpose} IN ('audition', 'publish')`),
     check("episode_revision", sql`${table.revision} > 0`),
+    check(
+      "episode_content_revision",
+      sql`${table.contentRevision} > 0 AND ${table.contentRevision} <= ${table.revision}`,
+    ),
   ],
 );
 
@@ -482,3 +487,173 @@ export const videoExports = pgTable("video_exports", {
     .notNull()
     .defaultNow(),
 });
+
+export const compositionReviews = pgTable(
+  "composition_reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    episodeId: uuid("episode_id")
+      .notNull()
+      .references(() => episodes.id),
+    compositionId: uuid("composition_id")
+      .notNull()
+      .references(() => compositions.id),
+    exportId: uuid("export_id")
+      .notNull()
+      .references(() => videoExports.id),
+    compositionChecksum: text("composition_checksum").notNull(),
+    scriptChecksum: text("script_checksum").notNull(),
+    voiceChecksum: text("voice_checksum").notNull(),
+    captionChecksum: text("caption_checksum").notNull(),
+    decision: text("decision").notNull(),
+    checklist: jsonb("checklist").notNull(),
+    feedback: text("feedback").notNull(),
+    rightsSnapshot: jsonb("rights_snapshot").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      "composition_review_decision",
+      sql`${table.decision} IN ('approved','needs_changes')`,
+    ),
+    check(
+      "composition_review_checksum",
+      sql`char_length(${table.compositionChecksum}) = 64`,
+    ),
+    check(
+      "composition_review_feedback",
+      sql`char_length(${table.feedback}) <= 6000`,
+    ),
+    index("composition_review_revision").on(
+      table.compositionId,
+      table.createdAt,
+    ),
+  ],
+);
+
+// Hadith imports preserve the exact numbering and provenance of each edition.
+export const hadithImports = pgTable(
+  "hadith_imports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    provider: text("provider").notNull(),
+    edition: text("edition").notNull(),
+    translator: text("translator"),
+    provenance: text("provenance").notNull(),
+    coverageNotes: text("coverage_notes").notNull(),
+    recordCount: integer("record_count").notNull(),
+    status: text("status").notNull().default("completed"),
+    rightsStatus: text("rights_status").notNull().default("not_cleared"),
+    rightsNotes: text("rights_notes").notNull(),
+    checksum: text("checksum").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("hadith_import_checksum").on(t.checksum),
+    check("hadith_provider", sql`${t.provider} IN ('manual','sunnah')`),
+    check("hadith_import_status", sql`${t.status} = 'completed'`),
+    check(
+      "hadith_import_rights",
+      sql`${t.rightsStatus} IN ('not_cleared','cleared')`,
+    ),
+    check("hadith_import_count", sql`${t.recordCount} BETWEEN 1 AND 100`),
+  ],
+);
+export const hadithPassages = pgTable(
+  "hadith_passages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    importId: uuid("import_id")
+      .notNull()
+      .references(() => hadithImports.id),
+    collectionCode: text("collection_code").notNull(),
+    collectionName: text("collection_name").notNull(),
+    bookNumber: text("book_number").notNull(),
+    bookName: text("book_name"),
+    chapterId: text("chapter_id"),
+    chapterTitle: text("chapter_title"),
+    hadithNumber: text("hadith_number").notNull(),
+    numberingScheme: text("numbering_scheme").notNull(),
+    otherReferences: jsonb("other_references").notNull(),
+    reference: text("reference").notNull(),
+    narrator: text("narrator"),
+    text: text("text").notNull(),
+    arabic: text("arabic").notNull().default(""),
+    context: jsonb("context").notNull(),
+    grades: jsonb("grades").notNull(),
+    sourceUrl: text("source_url").notNull(),
+    raw: jsonb("raw").notNull(),
+    checksum: text("checksum").notNull(),
+    reviewState: text("review_state").notNull().default("unreviewed"),
+    reviewedBy: text("reviewed_by"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewNotes: text("review_notes").notNull().default(""),
+  },
+  (t) => [
+    uniqueIndex("hadith_import_identity").on(
+      t.importId,
+      t.collectionCode,
+      t.numberingScheme,
+      t.hadithNumber,
+    ),
+    index("hadith_import_collection").on(t.importId, t.collectionCode),
+    check(
+      "hadith_review_state",
+      sql`${t.reviewState} IN ('unreviewed','reviewed')`,
+    ),
+    check(
+      "hadith_review_evidence",
+      sql`${t.reviewState} != 'reviewed' OR (${t.reviewedBy} IS NOT NULL AND ${t.reviewedAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
+export const scriptRewriteSuggestions = pgTable(
+  "script_rewrite_suggestions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    episodeId: uuid("episode_id")
+      .notNull()
+      .references(() => episodes.id),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id)
+      .unique(),
+    baseScriptId: uuid("base_script_id")
+      .notNull()
+      .references(() => scriptRevisions.id),
+    draftRevision: integer("draft_revision").notNull(),
+    episodeRevision: integer("episode_revision").notNull(),
+    model: text("model").notNull(),
+    instructions: text("instructions").notNull(),
+    selection: jsonb("selection").notNull(),
+    alternatives: jsonb("alternatives").notNull(),
+    rejectedAt: timestamp("rejected_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      "rewrite_model",
+      sql`${table.model} IN ('openai/gpt-5.6-luna', 'google/gemini-3.8-flash')`,
+    ),
+    check(
+      "rewrite_revision",
+      sql`${table.draftRevision} >= 0 AND ${table.episodeRevision} > 0`,
+    ),
+    check(
+      "rewrite_instructions",
+      sql`char_length(${table.instructions}) <= 2000`,
+    ),
+    check(
+      "rewrite_alternatives",
+      sql`CASE WHEN jsonb_typeof(${table.alternatives}) = 'array' THEN jsonb_array_length(${table.alternatives}) = 3 ELSE false END`,
+    ),
+    index("rewrite_episode_created").on(table.episodeId, table.createdAt),
+  ],
+);

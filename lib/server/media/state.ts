@@ -12,6 +12,7 @@ import {
 import { listAssets } from "./assets";
 import { writingState } from "../writing/state";
 import { cueSchema, compositionSchema } from "../../domain/media";
+import { consolidatedReviewState } from "./review";
 export async function mediaState(episodeId: string) {
   const writing = await writingState(episodeId);
   const selectedScript = writing.scripts.find(
@@ -63,6 +64,7 @@ export async function mediaState(episodeId: string) {
     : [];
   return {
     ...writing,
+    ...(await consolidatedReviewState(episodeId, saved, exports)),
     selectionRevision: workspace?.revision || writing.selectionRevision,
     selectedVoiceTakeId: workspace?.selectedVoiceTakeId || null,
     selectedCaptionTrackId: workspace?.selectedCaptionTrackId || null,
@@ -82,7 +84,8 @@ export async function mediaState(episodeId: string) {
       createdAt: t.createdAt.toISOString(),
       stale:
         t.scriptId !== selectedScript?.id ||
-        selectedScript?.episodeRevision !== writing.episode.revision,
+        selectedScript?.episodeRevision !==
+          (writing.episode.contentRevision ?? writing.episode.revision),
     })),
     tracks: tracks.map((t) => ({
       id: t.id,
@@ -99,19 +102,31 @@ export async function mediaState(episodeId: string) {
       voiceTakeId: c.voiceTakeId,
       captionTrackId: c.captionTrackId,
       data: compositionSchema.parse(c.data),
+      checksum: c.checksum,
       reviewState: c.reviewState,
       createdAt: c.createdAt.toISOString(),
       stale:
         (c.voiceTakeId !== null &&
           c.voiceTakeId !== workspace?.selectedVoiceTakeId) ||
         c.scriptId !== selectedScript?.id ||
-        selectedScript?.episodeRevision !== writing.episode.revision ||
+        selectedScript?.episodeRevision !==
+          (writing.episode.contentRevision ?? writing.episode.revision) ||
         (c.captionTrackId !== null &&
           workspace?.selectedCaptionTrackId !== c.captionTrackId),
     })),
     exports: exports.map((e) => ({
       id: e.id,
       compositionId: e.compositionId,
+      formats: [
+        ...(e.landscapePath ? ["landscape" as const] : []),
+        ...(e.verticalPath ? ["vertical" as const] : []),
+      ],
+      compositionChecksum:
+        z
+          .object({ compositionChecksum: z.string().optional() })
+          .passthrough()
+          .parse(e.metadata).compositionChecksum || null,
+      privateDraft: true,
       createdAt: e.createdAt.toISOString(),
     })),
   };

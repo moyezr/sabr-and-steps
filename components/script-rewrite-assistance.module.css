@@ -1,0 +1,65 @@
+.panel {
+  margin-top: 1.25rem;
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.panel h2,
+.panel h3,
+.panel p {
+  margin: 0;
+}
+.panel textarea,
+.panel select {
+  width: 100%;
+  padding: 0.65rem;
+  border: 1px solid var(--separator);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  color: inherit;
+}
+.controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 1rem;
+}
+.controls label {
+  display: grid;
+  gap: 0.4rem;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.original {
+  white-space: pre-wrap;
+  padding: 0.8rem;
+  border-left: 3px solid var(--separator);
+  overflow-wrap: anywhere;
+}
+.comparison {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+}
+.request {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--separator);
+}
+.alternative {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--separator);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .controls,
+  .comparison {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

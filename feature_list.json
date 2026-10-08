@@ -131,7 +131,7 @@
       "area": "pilot",
       "title": "Complete a reviewed 90\u2013120 second pilot",
       "user_visible_behavior": "The creator completes one original episode and downloads both videos, captions, and a source-referenced description.",
-      "status": "not_started",
+      "status": "blocked",
       "verification": [
         "Run the complete idea-to-export workflow with at least one verified Qur'an quotation.",
         "Exercise stage review and consolidated review; confirm approval belongs to the exact export revision.",
@@ -141,7 +141,7 @@
       "evidence": [
         "2026-09-15: First actual 95-second private pilot generated with verified Qur\u2019an quotation, ElevenLabs narration, captions, both MP4s and source description. User-requested generation goal achieved; creator approval and full feature acceptance are not claimed."
       ],
-      "notes": "Real private review copies are available. Remaining: full creator watching/listening and feedback, exact-revision consolidated review controls, and publication rights. Manual publishing remains outside the app."
+      "notes": "Exact-export consolidated review controls are implemented in F016. Real private pilot files remain available; creator complete watching/listening, feedback, exact-revision approval and publication rights remain pending. Technical/synthetic acceptance is not creator approval."
     },
     {
       "id": "F007",
@@ -149,15 +149,17 @@
       "area": "sources",
       "title": "Support a verified hadith corpus",
       "user_visible_behavior": "The creator can retrieve and cite curated hadith with complete report context and traceable collection references.",
-      "status": "not_started",
+      "status": "blocked",
       "verification": [
         "Import available Sunnah.com records or reviewed manual records with explicit provenance.",
         "Preserve numbering schemes, full context, and any supplied grading authority.",
         "Show corpus coverage and unknown grades accurately; repeat import without duplicates.",
         "Use a verified hadith in a reviewed script and its exported description."
       ],
-      "evidence": [],
-      "notes": "Required channel capability after the initial Qur'an-based pilot; complete Bukhari API coverage is not assumed."
+      "evidence": [
+        "2026-10-08: Manual/API adapter, canonical identity, immutable dedup, review gating, mixed-script context, full-report body boundaries and synthetic browser/export acceptance pass. See docs/evidence/2026-10-08-hadith-support.md and docs/evidence/2026-10-08-editor-completion.md."
+      ],
+      "notes": "Import/inspection/insertion code is delivered. SUNNAH_API_KEY and an actual reviewed hadith corpus are absent; real-source script/export acceptance and reuse clearance remain pending. Synthetic fixtures do not satisfy religious-source acceptance. Supply a verified reviewed manual corpus or approved API access; full collection coverage is not assumed."
     },
     {
       "id": "F008",
@@ -255,9 +257,10 @@
         "Run pnpm check, pnpm test:db, pnpm build, and desktop/mobile browser acceptance with deterministic provider fixtures; label any live model call separately."
       ],
       "evidence": [
-        "2026-09-30: Retained idea directions, immutable input/model/revision snapshots, explicit local adoption, safe same-job retries, and owner-checked durable persistence passed deterministic unit/database/browser acceptance. pnpm check (38 unit tests), all five pnpm test:db suites, production build, Drizzle metadata check and git diff --check passed. See docs/evidence/2026-09-30-idea-assistance.md. No live inference was used."
+        "2026-09-30: Retained idea directions, immutable input/model/revision snapshots, explicit local adoption, safe same-job retries, and owner-checked durable persistence passed deterministic unit/database/browser acceptance. pnpm check (38 unit tests), all five pnpm test:db suites, production build, Drizzle metadata check and git diff --check passed. See docs/evidence/2026-09-30-idea-assistance.md. No live inference was used.",
+        "2026-10-08: A bounded live Luna idea-direction request succeeded through credit/pricing/reservation/worker/persistence checks, reported cost $0.0004152. See docs/evidence/2026-10-08-targeted-rewrites.md. No live Gemini inference is claimed."
       ],
-      "notes": "Completed PLAN.md milestone 3A. Each generation retains three validated directions separately from the saved brief and selected script. Browser checks cover edits during generation, model history, explicit adoption/save/reload, same-job retry, uncertain results, navigation, and mobile layout. Script blocks/source insertion and targeted rewrites are next; a live F012 model check remains unperformed."
+      "notes": "Retained directions and explicit adoption are delivered. Deterministic both-model acceptance and a live Luna check pass. Script block/source editing and targeted rewrites are delivered as F013/F014."
     },
     {
       "id": "F013",
@@ -278,6 +281,107 @@
         "2026-10-04: Manual starts, canonical block/source editing, current source context, structural undo, optimistic persistence and concurrency passed deterministic unit/database/browser acceptance. pnpm check (42 unit tests), all five pnpm test:db suites, pnpm build, migration metadata and git diff --check passed. See docs/evidence/2026-10-04-script-block-editing.md. No provider inference was dispatched."
       ],
       "notes": "Completed PLAN.md milestone 3B. Manual scripts require a completed source edition and use no retrieval index or inference. One source edition per script; canonical passages are inspected and adopted explicitly. Targeted AI rewrites, mixed-edition scripts and richer timeline/media controls remain separate slices."
+    },
+    {
+      "id": "F014",
+      "priority": 14,
+      "area": "writing",
+      "title": "Retain and explicitly apply targeted AI rewrites",
+      "user_visible_behavior": "Select reflection text, request alternatives from either permitted model, compare and explicitly apply a result without changing canonical quotations or subsequent edits.",
+      "status": "passing",
+      "verification": [
+        "Snapshot selected text, surrounding reflection, model and instructions in a durable job; new requests are fresh and safe retries retain identity.",
+        "Validate bounded structured alternatives and current worker ownership; unknown provider outcomes require reconciliation.",
+        "Retain results independently of the working draft; accept only an unchanged target and preserve unrelated edits, autosave and undo.",
+        "Verify desktop/mobile selection, comparison, rejection, reload and generation during editing with deterministic fixtures; label live model checks separately."
+      ],
+      "evidence": [
+        "2026-10-08: Integrated unit/database/build and desktop/mobile browser acceptance passed with explicit live/fixture boundaries. See docs/evidence/2026-10-08-editor-completion.md."
+      ],
+      "notes": "Parallel implementation explicitly requested 2026-10-08; backend and writing UI assigned to script_backend."
+    },
+    {
+      "id": "F015",
+      "priority": 15,
+      "area": "video",
+      "title": "Edit scenes, captions, music and visual styling",
+      "user_visible_behavior": "Inspect a scene timeline, seek from captions, split/merge timing, adjust reading durations, music and backgrounds, and preview typography and per-scene framing from the same saved composition used for render.",
+      "status": "passing",
+      "verification": [
+        "Preserve legacy v1/v2 composition behavior while saving validated v3 controls and immutable scene/media snapshots.",
+        "Retain exact script/caption words and quotation attribution through split/merge and timing edits; reject overlapping or invalid durations.",
+        "Preview scene/card timing, selected backgrounds, typography, placement, transitions, separate landscape/vertical framing and music trim/fades/ducking.",
+        "Verify settings save/reload and visual changes preserve narration; confirm uploaded assets and historical exports remain accessible.",
+        "Render representative landscape/vertical frames with deterministic composition data and perform desktop/mobile browser acceptance."
+      ],
+      "evidence": [
+        "2026-10-08: Integrated unit/database/build and desktop/mobile browser acceptance passed with explicit live/fixture boundaries. See docs/evidence/2026-10-08-editor-completion.md."
+      ],
+      "notes": "Parallel implementation explicitly requested 2026-10-08; primary agent owns media studio, composition domain/server and shared renderer."
+    },
+    {
+      "id": "F016",
+      "priority": 16,
+      "area": "exports",
+      "title": "Export chosen formats and review exact revisions",
+      "user_visible_behavior": "Choose landscape, vertical or both, retain earlier exports, and record consolidated review of the exact script/audio/composition while seeing outstanding rights and approval prerequisites.",
+      "status": "passing",
+      "verification": [
+        "Render only requested formats through a durable job tied to a saved immutable composition; preserve earlier downloads and sanitized failure recovery.",
+        "Record review checklist and feedback against exact composition and dependency checksums; edits never inherit approval.",
+        "Show source coverage, publication rights and narration/media provenance without falsely clearing unknown rights or creator feedback.",
+        "Exercise complete deterministic idea-to-export workflow, format/model preference changes, generation during editing and review invalidation; record actual live-provider usage separately."
+      ],
+      "evidence": [
+        "2026-10-08: Integrated unit/database/build and desktop/mobile browser acceptance passed with explicit live/fixture boundaries. See docs/evidence/2026-10-08-editor-completion.md."
+      ],
+      "notes": "Parallel implementation explicitly requested 2026-10-08; export/review assigned to browser_fixture. Creator acceptance F004-F006 and external rights remain separate."
+    },
+    {
+      "id": "F017",
+      "priority": 17,
+      "area": "sources",
+      "title": "Verify full Qur\u2019an coverage and publication reuse",
+      "user_visible_behavior": "Use an explicitly chosen production translation with verified complete corpus coverage and recorded publication reuse terms.",
+      "status": "blocked",
+      "verification": [
+        "Authenticate approved production API credentials against the matching production environment without exposing secrets.",
+        "Import the full chosen translation and verify chapter/verse coverage and representative canonical text against the provider.",
+        "Record translator/publisher permission, attribution and applicable narration/video reuse terms; do not infer rights from API access."
+      ],
+      "evidence": [
+        "2026-10-08: Authenticated read-only pre-live catalog still exposes only chapters 1\u20132 (293 verses); official docs require approved production access for the full dataset. See docs/evidence/2026-10-08-hadith-support.md."
+      ],
+      "notes": "Approved production access and translation publication-reuse clearance are external prerequisites. Do not contact providers, change credentials, fabricate coverage or clear rights without creator-supplied evidence."
+    },
+    {
+      "id": "F018",
+      "priority": 18,
+      "area": "audio",
+      "title": "Connect direct Cartesia and Deepgram quota and dispatch",
+      "user_visible_behavior": "Use direct speech/transcription only after verified eligible quota, pricing and usage rights; inspect concrete connection or permission blockers.",
+      "status": "blocked",
+      "verification": [
+        "Check configured direct-provider access and account-specific remaining eligible grants, units, expiry and prices without submitting audio.",
+        "Reserve usage atomically before any direct dispatch; unknown rights/balance fail closed with no paid or provider fallback.",
+        "Verify native timing or direct transcription against canonical script text and worker restart/cache/reconciliation behavior."
+      ],
+      "evidence": [
+        "2026-10-08: Read-only diagnostics implemented; configured Deepgram key lists projects but billing balance read returns403. Cartesia remaining eligible grant is unverified; documented admin API reports usage only and no admin key is configured. Dispatch remains disabled.",
+        "2026-10-08: Four diagnostics unit tests and actual read-only provider checks pass; UI exposes missing/denied quota access without inference. See docs/evidence/2026-10-08-editor-completion.md."
+      ],
+      "notes": "Account billing balance-read permissions and verified grant/pricing/rights are missing. Read-only diagnostics are implemented; direct speech/STT dispatch is not implemented or accepted. Existing verified ElevenLabs path remains available."
     }
-  ]
+  ],
+  "parallel_implementation": {
+    "authorized_on": "2026-10-08",
+    "creator_instruction": "making sure that you're tracking everything, start implementing all these. spawn sub agents to complete the work faster and parallelly.",
+    "decision": "D024",
+    "owners": {
+      "F007": "source_browser",
+      "F014": "script_backend",
+      "F015": "primary agent",
+      "F016": "browser_fixture"
+    }
+  }
 }

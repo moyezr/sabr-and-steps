@@ -2,7 +2,7 @@
 
 Date: 2026-09-16.
 
-Status: accepted by the creator; milestones 1 and 2 are complete as F008–F011. Milestone 3 has delivered F012 idea assistance and F013 manual script/block editing with source selection; targeted partial rewrites follow. This document records intended behavior; verification and session results remain in `PROGRESS.md` and `feature_list.json`.
+Status: accepted by the creator; milestones 1 and 2 are complete as F008–F011. Milestones 3–5 have delivered technical editor implementation as F012–F016, including targeted rewrites, scene/media controls and exact-export review. Creator pilot acceptance and external source/provider prerequisites remain tracked separately. This document records intended behavior; verification and session results remain in `PROGRESS.md` and `feature_list.json`.
 
 ## Goal
 
@@ -137,9 +137,9 @@ Implement one bounded milestone at a time, with acceptance evidence before proce
 | --- | --- | --- |
 | 1 | Connected episode workspace, working navigation, existing-project loading | Completed (F008) |
 | 2 | Autosave, explicit version selection, history, correct change tracking | Completed (F009–F011) |
-| 3 | Idea assistance, iterative script editing, source selection, partial rewrites | In progress (F012–F013 complete; partial rewrites next) |
-| 4 | Scene timeline, voice/caption editing, media library, visual controls | Planned |
-| 5 | Format-specific export, consolidated review, complete workflow testing | Planned |
+| 3 | Idea assistance, iterative script editing, source selection, partial rewrites | Completed technically (F012–F014) |
+| 4 | Scene timeline, voice/caption editing, media library, visual controls | Completed technically (F015; direct provider extensions remain F018) |
+| 5 | Format-specific export, consolidated review, complete workflow testing | Completed technically (F016); creator pilot acceptance remains F006 |
 
 ### Milestone 1 boundary
 
@@ -167,3 +167,7 @@ Verify an actual creative session:
 10. Exercise generation/render failures, recovery, keyboard navigation, and smaller-screen layouts.
 
 Use deterministic fixtures for routine generation tests. Identify live-provider checks separately, preserving the existing authorization, cost, and rights boundaries.
+
+## Remaining prerequisites and extensions
+
+F004/F005 require creator listening and visual feedback. F006 requires exact-export pilot review and approval. F007 needs an actual reviewed hadith corpus/API access; F017 needs approved full Qur’an access and reuse evidence. F018 tracks missing direct-provider quota/rights evidence and dispatch extensions. Video-file backgrounds, mixed Qur’an editions and source footnote explanations remain deferred. These are not completed by deterministic fixtures or by technical editor delivery.

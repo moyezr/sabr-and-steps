@@ -1,18 +1,27 @@
 # Progress
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-08.
 
 ## Current state
 
 - Repository: `/Users/moyezrabbani/Development/Projects/sabr-and-steps`.
-- Working branch: `codex/script-block-editing`, based on the reconciled `main`, with an upstream at `origin/codex/script-block-editing`. Implementation commits are pushed to GitHub using the `moyezr` account.
-- Passing: H001 and F001–F003, F008–F013. No feature is currently active. PLAN.md milestones 1 and 2 are complete. F004 and F005 wait for creator listening/aesthetic feedback; F006 still needs exact-revision review and creator approval.
+- Working branch: `codex/editor-completion`, based on the pushed F013 work. The editor completion is verified locally; Git integration/synchronization is the remaining maintenance step for this session.
+- Passing: H001, F001–F003 and F008–F016. No implementation feature is active. F004/F005 require creator listening/aesthetic feedback; F006 requires exact-export pilot approval. F007 source support is implemented but real corpus acceptance is blocked. F017 full Qur’an access/reuse and F018 direct provider quota/dispatch remain blocked by documented external prerequisites. PLAN.md milestones 1–5 have technical editor delivery; this does not complete creator/publication acceptance.
 - The connected editor exposes Idea, Script & sources, Voice & captions, Music, Backgrounds, Video, and Exports for existing and incomplete episodes.
 - Script models remain exactly `openai/gpt-5.6-luna` and `google/gemini-3.8-flash` through OpenRouter. Speech remains direct through configured providers with credit and rights checks.
 - PostgreSQL 17/pgvector runs locally on loopback port 55432. Provider outputs and final assets remain in the ignored local data directory.
-- The updated production app at `http://127.0.0.1:3107` and local database are intentionally running for creator review. The worker is stopped; there are no queued/running/uncertain jobs. Temporary browser fixtures were removed.
+- The real production app is running at `http://127.0.0.1:3107` for creator review, with database migration 0011 applied. The existing “When waiting feels heavy” selection/media still opens saved and unchanged. Worker is stopped, no real queued/running/uncertain jobs remain, and temporary fixture servers/databases have been removed.
 
 ## Latest completed work
+
+### Parallel editor completion — 2026-10-08
+
+- The creator explicitly requested all remaining implementation with subagents. F014 rewrites, F015 scenes/media controls, F016 format-specific exports/exact-export review, and F007 source paths were integrated with one reviewed additive migration. D024/D025 record scope and architecture.
+- Targeted alternatives retain either permitted model and immutable input. Explicit acceptance preserves later text, uses autosave/undo, and leaves canonical quotations intact. Scene/caption/media controls save versioned data shared by live preview and render. Model/orientation preferences preserve valid narration through separate content validity.
+- Each exported orientation/revision has its own review and draft feedback. New outputs do not inherit approval. Rights remain independent, and all current renders remain private watermarked drafts. Lost or expired workers cannot register an export.
+- Hadith import/search/full context, immutable dedup, review gating, canonical insertion and description attribution are implemented. No real hadith corpus or API access is claimed. Provider access diagnostics expose unknown/denied quotas without generating speech or changing permissions.
+- Final integrated checks pass 64 unit tests, ten DB suites, production build and diff checks. Production desktop/mobile journeys cover generation during editing, partial acceptance, structural/source checkpoints, caption save races, scene/mix persistence, old exports, independent format review, downloads and actual decoding. Only the bounded live Luna idea/rewrite checks dispatched inference: reported total $0.0006812. No new speech was generated.
+- Evidence: [editor completion](docs/evidence/2026-10-08-editor-completion.md), [rewrites](docs/evidence/2026-10-08-targeted-rewrites.md), [hadith](docs/evidence/2026-10-08-hadith-support.md), [export/review](docs/evidence/2026-10-08-format-export-review.md). Raw outputs/screenshots/receipts remain ignored under `.data/evidence/2026-10-08/` and `.data/evidence/format-exports/`.
 
 ### GitHub synchronization — 2026-10-05
 
@@ -62,13 +71,15 @@ Last updated: 2026-10-05.
 
 ## Verification
 
-- `pnpm check`: harness, lint, TypeScript, and 42 unit tests pass.
-- `pnpm test:db`: all five disposable database suites pass.
+- `pnpm check`: harness, lint, TypeScript, and 64 unit tests pass.
+- `pnpm test:db`: all ten disposable database suites pass.
 - `pnpm build` and `git diff --check` pass.
-- The real local database is migrated through 0010. No provider inference was made for F008–F013. Temporary fixture servers and databases were removed; latest logs and verification images remain ignored under `.data/evidence/2026-10-04/`.
+- The real database is migrated through 0011 with existing content/media preserved. The migration upgrade/repeat and content validity backfill are verified. Provider inference remains absent for F008–F013 except the separately labeled live F012 Luna check on 2026-10-08; F014 also has one bounded live Luna check. No live Gemini inference or new speech is claimed.
 
 ## Next bounded action
 
-Continue PLAN.md milestone 3 with targeted partial AI rewrites: snapshot selected reflection text and instructions in durable jobs, retain alternatives from either permitted model, compare them with the original, and explicitly accept into the working draft without changing canonical quotes or later edits. Add its feature record and acceptance criteria before implementation.
+Use the Exports review controls to watch/listen to the actual 90–120-second pilot, record pronunciation/music/visual feedback and approve that exact export when appropriate. F004–F006 are not completed by technical fixtures.
 
-F004/F005 still need creator listening and visual feedback, and F006 needs exact-revision consolidated review and creator approval. Hadith support, timeline/media controls, and format-specific export remain planned. Full Qur’an coverage and publication rights remain unresolved. F012 has deterministic acceptance only; no fresh live idea-model response or cost is claimed.
+Supply approved Qur’an production access and translation-reuse evidence for F017, and a real reviewed hadith corpus or Sunnah API key for F007. Current Qur’an access remains chapters 1–2 (293 verses); neither source’s publication rights are cleared. For F018, provide verified eligible grant/pricing/rights and required balance-read access before implementing/dispatching direct Cartesia/Deepgram speech/STT. The current Deepgram key can list a project but cannot read its balance; Cartesia catalog access does not establish remaining credits.
+
+Video-file backgrounds, mixed Qur’an editions and source footnote explanations remain deferred extensions. No recurring job, permission request, provider fallback, publication render or video upload was created.

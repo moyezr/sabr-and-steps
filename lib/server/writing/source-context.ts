@@ -5,15 +5,26 @@ import { z } from "zod";
 import { scriptBlockSchema, validateScriptQuotes } from "../../domain/script";
 import { type getDb } from "../db/client";
 import { sourceImports, sourcePassages } from "../db/schema";
+import { resolveHadithQuotes } from "../sources/hadith";
 
 type SourceReader = Pick<ReturnType<typeof getDb>, "select">;
 export type ScriptSource = {
+  sourceKind?: "hadith";
   id: string;
   reference: string;
   text: string;
   edition: string;
   importId: string;
   context: { reference: string; text: string }[];
+  sourceUrl?: string;
+  collection?: string;
+  book?: string;
+  hadithNumber?: string;
+  numberingScheme?: string;
+  narrator?: string | null;
+  grades?: { grade: string; authority: string | null }[];
+  translator?: string | null;
+  rightsStatus?: string;
 };
 
 /** Resolve only the quoted passages, always from the script's canonical edition. */
@@ -30,12 +41,20 @@ export async function scriptSourceContext(
     throw new Error("SOURCE_IMPORT_NOT_COMPLETE");
   const ids = Array.from(
     new Set(
-      blocks
-        .filter((block) => block.kind === "quote")
-        .map((block) => block.sourceId),
+      blocks.flatMap((block) =>
+        block.kind === "quote" && block.sourceKind !== "hadith"
+          ? [block.sourceId]
+          : [],
+      ),
     ),
   );
-  if (!ids.length) return [];
+  const hadithSources = await resolveHadithQuotes(
+    db,
+    blocks.filter(
+      (block) => block.kind === "quote" && block.sourceKind === "hadith",
+    ),
+  );
+  if (!ids.length) return hadithSources;
   const passages = await db
     .select()
     .from(sourcePassages)
@@ -46,7 +65,9 @@ export async function scriptSourceContext(
       ),
     );
   validateScriptQuotes(
-    blocks,
+    blocks.filter(
+      (block) => block.kind === "quote" && block.sourceKind !== "hadith",
+    ),
     passages.map((passage) => ({ ...passage, edition: edition.name })),
   );
   const neighbors = await db
@@ -71,7 +92,7 @@ export async function scriptSourceContext(
       ),
     )
     .orderBy(asc(sourcePassages.chapter), asc(sourcePassages.verse));
-  return ids.map((id) => {
+  const quranSources = ids.map((id) => {
     const passage = passages.find((candidate) => candidate.id === id)!;
     return {
       id: passage.id,
@@ -88,6 +109,15 @@ export async function scriptSourceContext(
         .map(({ reference, text }) => ({ reference, text })),
     };
   });
+  const sources: ScriptSource[] = [...quranSources, ...hadithSources];
+  const quoteIds = Array.from(
+    new Set(
+      blocks
+        .filter((block) => block.kind === "quote")
+        .map((block) => block.sourceId),
+    ),
+  );
+  return quoteIds.map((id) => sources.find((source) => source.id === id)!);
 }
 
 /** Keep generation provenance while replacing its review context with actual quotes. */

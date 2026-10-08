@@ -72,7 +72,7 @@ export async function createDraft(job: Job) {
       .insert(scriptRevisions)
       .values({
         episodeId: episode.id,
-        episodeRevision: episode.revision,
+        episodeRevision: episode.contentRevision,
         jobId: job.id,
         importId: input.importId,
         indexId,
@@ -159,7 +159,7 @@ export async function saveDraft(episodeId: string, raw: unknown) {
         .insert(scriptRevisions)
         .values({
           episodeId,
-          episodeRevision: episode.revision,
+          episodeRevision: episode.contentRevision,
           parentId: current.id,
           importId: current.importId,
           indexId: current.indexId,
@@ -210,7 +210,7 @@ export async function reviewDraft(
   const episode = (
     await db.select().from(episodes).where(eq(episodes.id, episodeId))
   )[0];
-  if (!episode || episode.revision !== selected.episodeRevision)
+  if (!episode || episode.contentRevision !== selected.episodeRevision)
     throw new Error("EPISODE_REVISION_CHANGED");
   z.array(scriptBlockSchema).parse(selected.blocks);
   return (

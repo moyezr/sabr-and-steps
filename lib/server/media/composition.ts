@@ -18,6 +18,10 @@ import {
 } from "../../domain/media";
 import { scriptBlockSchema } from "../../domain/script";
 import { checkedAsset } from "./assets";
+import {
+  editorSettingsSchema,
+  retimeReadingCues,
+} from "../../domain/scene-settings";
 import { digest } from "../hash";
 export const compositionInputSchema = z.object({
   selectionRevision: z.number().int().positive(),
@@ -35,9 +39,11 @@ export const compositionInputSchema = z.object({
   musicVolume: z.number().min(0).max(1).default(0.2),
   musicLoop: z.boolean().default(true),
   musicFade: z.number().min(0).max(10).default(3),
+  editorSettings: editorSettingsSchema.optional(),
 });
 export async function saveComposition(episodeId: string, input: unknown) {
   const data = compositionInputSchema.parse(input);
+  const editorSettings = data.editorSettings;
   const db = getDb();
   return db.transaction(async (tx) => {
     const episode = (
@@ -82,7 +88,7 @@ export async function saveComposition(episodeId: string, input: unknown) {
     if (
       !requestedScript ||
       (workspace?.selectedScriptId || fallback?.id) !== requestedScript.id ||
-      requestedScript.episodeRevision !== episode.revision
+      requestedScript.episodeRevision !== episode.contentRevision
     )
       throw new Error("SCRIPT_REVISION_CHANGED");
     const script = requestedScript;
@@ -115,7 +121,12 @@ export async function saveComposition(episodeId: string, input: unknown) {
         await tx
           .select()
           .from(captionTracks)
-          .where(eq(captionTracks.voiceTakeId, take.id))
+          .where(
+            and(
+              eq(captionTracks.voiceTakeId, take.id),
+              eq(captionTracks.id, data.captionTrackId),
+            ),
+          )
           .orderBy(desc(captionTracks.createdAt))
           .limit(1)
       )[0];
@@ -127,13 +138,22 @@ export async function saveComposition(episodeId: string, input: unknown) {
         throw new Error("CAPTION_REVISION_CHANGED");
       cues = z.array(cueSchema).parse(track.cues);
       validateCues(cues, take.duration);
-      duration = take.duration + 0.6;
+      const offset = editorSettings?.openingSeconds ?? 0;
+      cues = cues.map((cue) => ({
+        ...cue,
+        start: cue.start + offset,
+        end: cue.end + offset,
+      }));
+      duration =
+        take.duration + offset + (editorSettings?.closingSeconds ?? 0.6);
     } else {
       cues = readingCues(
         z.array(scriptBlockSchema).parse(script.blocks),
         data.readingWpm,
       );
-      duration = cues[cues.length - 1].end + 0.6;
+      if (editorSettings) cues = retimeReadingCues(cues, editorSettings);
+      duration =
+        cues[cues.length - 1].end + (editorSettings?.closingSeconds ?? 0.6);
     }
     const snapshot = (a: NonNullable<typeof imageAsset>) => ({
       id: a.id,
@@ -142,8 +162,50 @@ export async function saveComposition(episodeId: string, input: unknown) {
       name: a.name,
       provenance: a.provenance,
     });
+    if (editorSettings) {
+      const indices = editorSettings.sceneOverrides.map((s) => s.cueIndex);
+      if (
+        new Set(indices).size !== indices.length ||
+        indices.some((i) => i >= cues.length)
+      )
+        throw new Error("SCENES_CHANGED");
+      if (
+        musicAsset &&
+        (editorSettings.musicStart >= musicAsset.duration! ||
+          (editorSettings.musicEnd !== null &&
+            (editorSettings.musicEnd > musicAsset.duration! ||
+              editorSettings.musicEnd <= editorSettings.musicStart)))
+      )
+        throw new Error("MUSIC_TRIM_INVALID");
+    }
+    const sceneImages = editorSettings
+      ? await Promise.all(
+          editorSettings.sceneOverrides
+            .filter((s) => s.imageId !== undefined)
+            .map(async (scene) => {
+              const asset = scene.imageId
+                ? await checkedAsset(scene.imageId, "image")
+                : null;
+              return {
+                cueIndex: scene.cueIndex,
+                image: asset
+                  ? {
+                      ...snapshot(asset),
+                      mime: asset.mime,
+                      width: asset.width,
+                      height: asset.height,
+                    }
+                  : null,
+              };
+            }),
+        )
+      : undefined;
     const composition = compositionSchema.parse({
-      version: 2,
+      version: editorSettings ? 3 : 2,
+      editorSettings,
+      audioOffset:
+        take && editorSettings ? editorSettings.openingSeconds : undefined,
+      sceneImages,
       title: script.title,
       scriptChecksum: script.checksum,
       voiceChecksum: take?.checksum || "",
@@ -252,7 +314,7 @@ export async function validateCurrentComposition(id: string) {
     !episode ||
     workspace?.selectedCompositionId !== c.id ||
     selectedScriptId !== c.scriptId ||
-    selectedScript?.episodeRevision !== episode.revision
+    selectedScript?.episodeRevision !== episode.contentRevision
   )
     throw new Error("COMPOSITION_STALE");
   if (data.mode === "text") {

@@ -7,7 +7,7 @@ This file is the entry map. Read topic documents when relevant to the task.
 
 1. Read [PROGRESS.md](PROGRESS.md), [feature_list.json](feature_list.json), and relevant [decisions](DECISIONS.md).
 2. Inspect the working directory, `git status --short`, and recent history if present. Preserve existing user changes.
-3. Select one bounded feature or the user's requested maintenance task. Keep at most one feature `in_progress`; a backlog is not permission to implement everything.
+3. Select one bounded feature or the user's requested maintenance task. Keep at most one feature `in_progress` unless the creator explicitly authorizes a broader parallel implementation. For that exception, record every active feature, file ownership, and acceptance boundary; a backlog alone is not permission to implement everything.
 4. On first setup run `make setup && make test`. On a prepared checkout, use `pnpm check` before code changes.
 
 ## Commands

@@ -12,6 +12,12 @@ import {
   Undo2,
 } from "lucide-react";
 import { ScriptSourceBrowser } from "./script-source-browser";
+import { HadithSourceBrowser } from "./hadith-source-browser";
+import { ScriptRewriteAssistance } from "./script-rewrite-assistance";
+import {
+  applyReflectionRewrite,
+  type ReflectionSelection,
+} from "@/lib/domain/script-rewrites";
 import {
   useEpisodeWorkspace,
   useWorkspaceBuffer,
@@ -146,6 +152,12 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
     reference: string;
   } | null>(null);
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [rewriteSelection, setRewriteSelection] =
+    useWorkspaceBuffer<ReflectionSelection | null>(
+      `script:rewrite-selection:${initial.episode.id}`,
+      null,
+    );
+  const [rewritePromptDirty, setRewritePromptDirty] = useState(false);
   const sourcesAside = useRef<HTMLElement>(null);
   const mounted = useRef(true);
   useEffect(() => {
@@ -235,6 +247,7 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
       autosave === "error" ||
       autosave === "conflict" ||
       promptDirty ||
+      rewritePromptDirty ||
       manualDirty,
     saving: busy || autosave === "saving",
   });
@@ -961,7 +974,8 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
             {editionInfo?.rightsStatus === "cleared"
               ? "Edition reuse cleared."
               : "Publication reuse is not cleared for this edition. Private draft inspection only."}{" "}
-            {selected.episodeRevision !== state.episode.revision
+            {selected.episodeRevision !==
+            (state.episode.contentRevision ?? state.episode.revision)
               ? "This script was created for an older episode brief."
               : ""}
           </p>
@@ -1033,7 +1047,7 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                     <div className="eyebrow">
                       <span className="script-block-number">{index + 1}. </span>
                       {block.kind === "quote"
-                        ? `QUR’AN ${block.reference} · CANONICAL TRANSLATION`
+                        ? `${block.sourceKind === "hadith" ? "HADITH" : "QUR’AN"} ${block.reference} · CANONICAL TRANSLATION`
                         : "ORIGINAL REFLECTION"}
                     </div>
                     <div className="script-block-actions">
@@ -1083,26 +1097,59 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                       </button>
                     </>
                   ) : (
-                    <textarea
-                      data-script-edit-field
-                      aria-label={`Reflection ${index + 1}`}
-                      value={block.text}
-                      maxLength={2200}
-                      disabled={busy}
-                      rows={Math.max(3, Math.ceil(block.text.length / 70))}
-                      onChange={(event) =>
-                        setBlocks((items) =>
-                          items.map((item, itemIndex) =>
-                            itemIndex === index
-                              ? {
-                                  kind: "reflection",
-                                  text: event.target.value,
-                                }
-                              : item,
-                          ),
-                        )
-                      }
-                    />
+                    <>
+                      <textarea
+                        data-script-edit-field
+                        aria-label={`Reflection ${index + 1}`}
+                        value={block.text}
+                        maxLength={2200}
+                        disabled={busy}
+                        rows={Math.max(3, Math.ceil(block.text.length / 70))}
+                        onSelect={(event) => {
+                          const { selectionStart: start, selectionEnd: end } =
+                            event.currentTarget;
+                          if (
+                            end > start &&
+                            block.text.slice(start, end).trim()
+                          )
+                            setRewriteSelection({
+                              blockIndex: index,
+                              blockText: block.text,
+                              start,
+                              end,
+                              text: block.text.slice(start, end),
+                            });
+                        }}
+                        onChange={(event) =>
+                          setBlocks((items) =>
+                            items.map((item, itemIndex) =>
+                              itemIndex === index
+                                ? {
+                                    kind: "reflection",
+                                    text: event.target.value,
+                                  }
+                                : item,
+                            ),
+                          )
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="text-link"
+                        disabled={busy || !block.text.trim()}
+                        onClick={() =>
+                          setRewriteSelection({
+                            blockIndex: index,
+                            blockText: block.text,
+                            start: 0,
+                            end: block.text.length,
+                            text: block.text,
+                          })
+                        }
+                      >
+                        Rewrite this reflection
+                      </button>
+                    </>
                   )}
                 </div>
               ))}
@@ -1123,7 +1170,8 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                     Boolean(workingDraft) ||
                     selected.reviewState === "reviewed" ||
                     selected.id !== state.selectedScriptId ||
-                    selected.episodeRevision !== state.episode.revision
+                    selected.episodeRevision !==
+                      (state.episode.contentRevision ?? state.episode.revision)
                   }
                   onClick={() =>
                     void act("review", {
@@ -1141,6 +1189,43 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                 Changes autosave as a working draft. A named version is an
                 immutable checkpoint; review belongs to that exact version.
               </p>
+              <ScriptRewriteAssistance
+                episodeId={state.episode.id}
+                episodeRevision={state.episode.revision}
+                baseScriptId={selected.id}
+                draftRevision={edit?.revision ?? 0}
+                selection={rewriteSelection}
+                canGenerate={
+                  !busy &&
+                  !dirty &&
+                  validEdit &&
+                  autosave !== "saving" &&
+                  autosave !== "conflict" &&
+                  autosave !== "error"
+                }
+                canApply={
+                  !busy && autosave !== "conflict" && autosave !== "error"
+                }
+                onDirtyChange={setRewritePromptDirty}
+                onApply={(suggestion, text) => {
+                  if (suggestion.baseScriptId !== selected.id)
+                    throw new Error(
+                      "Select the original saved version before applying this request.",
+                    );
+                  try {
+                    setBlocks((items) =>
+                      applyReflectionRewrite(items, suggestion.selection, text),
+                    );
+                  } catch (caught) {
+                    throw new Error(
+                      caught instanceof Error &&
+                      caught.message === "REWRITE_BLOCK_TOO_LONG"
+                        ? "The accepted result would exceed this reflection's 2,200-character limit."
+                        : "The selected words changed after this request. Your later edits are preserved; request fresh alternatives.",
+                    );
+                  }
+                }}
+              />
             </section>
             <aside ref={sourcesAside} className="panel writing-context">
               <details
@@ -1173,11 +1258,38 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                   }}
                   onCancelReplace={() => setReplacement(null)}
                 />
+                <details>
+                  <summary>Inspect and insert a hadith report</summary>
+                  <HadithSourceBrowser
+                    episodeId={state.episode.id}
+                    canInsert={
+                      !busy && (replacement !== null || blocks.length < 30)
+                    }
+                    replacement={replacement}
+                    onInsert={insertBlock}
+                    onReplace={(block) => {
+                      if (
+                        !replacement ||
+                        busy ||
+                        blocks[replacement.index]?.kind !== "quote"
+                      )
+                        return;
+                      const index = replacement.index;
+                      setBlocks((items) =>
+                        items.map((item, itemIndex) =>
+                          itemIndex === index ? block : item,
+                        ),
+                      );
+                    }}
+                    onCancelReplace={() => setReplacement(null)}
+                  />
+                </details>
               </details>
               <h2>Source context</h2>
               <p>
                 Retrieved passages are candidates, not proof of interpretation.
-                Read the surrounding verses before reviewing.
+                Read neighboring verses or the supplied report context before
+                reviewing.
               </p>
               {(workingDraft ? state.workingSources : selected.sources)
                 .filter((source) =>
@@ -1188,8 +1300,44 @@ export function ScriptWorkspace({ initial }: { initial: WritingState }) {
                 )
                 .map((source) => (
                   <section key={source.id}>
-                    <h3>Qur’an {source.reference}</h3>
+                    <h3>
+                      {source.sourceKind === "hadith" ? "Hadith" : "Qur’an"}{" "}
+                      {source.reference}
+                    </h3>
                     <small>{source.edition}</small>
+                    {source.sourceKind === "hadith" && (
+                      <>
+                        <p>
+                          {source.collection} · {source.book} ·{" "}
+                          {source.numberingScheme}
+                        </p>
+                        {source.narrator && <p>Narrator: {source.narrator}</p>}
+                        {source.grades?.map((grade, gradeIndex) => (
+                          <p key={gradeIndex}>
+                            Supplied grade: {grade.grade}
+                            {grade.authority
+                              ? ` · ${grade.authority}`
+                              : " · Authority not supplied"}
+                          </p>
+                        ))}
+                        {source.sourceUrl && (
+                          <a
+                            className="text-link"
+                            href={source.sourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Canonical report source
+                          </a>
+                        )}
+                        <p>
+                          Publication reuse:{" "}
+                          {source.rightsStatus === "cleared"
+                            ? "cleared for this edition"
+                            : "not cleared"}
+                        </p>
+                      </>
+                    )}
                     {source.context.map((context) => (
                       <p
                         key={context.reference}

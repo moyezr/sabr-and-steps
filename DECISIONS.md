@@ -90,7 +90,7 @@ Uploads are bounded to 30 MB, inspected locally with FFprobe and restricted file
 
 Milestone 1 connects the existing routes with a shared episode header and real navigation. The entry URL opens the most developed available work: a composition opens Video, otherwise a script opens Script, otherwise Idea. A server-side read-only summary derives stage readiness from persisted revisions and jobs; labels must not imply that stale media or incomplete review is ready. Studio sections reuse existing controls and preview data. Unsaved-edit protection covers in-app links and browser reload/close, with media query switches and intra-episode Back/Forward navigation preserving local edits in the mounted layout. This is a navigation guard, not persisted autosave; recovery after reload or restart belongs to milestone 2 working drafts.
 
-F009 and F010 supersede milestone 1's newest-artifact limitation with persisted script/media selection, working drafts, immutable history, and narrower dependency invalidation. Milestone 2 still needs undo/redo and comparison. Idea assistance and targeted script rewriting follow in milestone 3; timeline/media controls in milestone 4; format-specific export and consolidated review in milestone 5.
+F009 and F010 supersede milestone 1's newest-artifact limitation with persisted script/media selection, working drafts, immutable history, and narrower dependency invalidation. F011/D021 subsequently completed milestone 2. F012–F016 deliver the technical editor capabilities in milestones 3–5; creator pilot acceptance and external access/rights remain separate prerequisites.
 
 No schema migration or new model calls were required to connect navigation. Durable generation, immutable composition data shared by preview/render, canonical quotations, speech credit/rights checks, and private export restrictions remain in force. F008 is passing; F005 retains its existing evidence and waits for creator feedback.
 
@@ -102,7 +102,7 @@ Mutable script edits live in a separate episode working-draft row with optimisti
 
 Generated alternatives append immutable history and select themselves only when an episode has no selection. Generation instructions and a fresh request identifier are recorded with the result. Restoring history creates a new revision parented to the restored source, preserving the source model and generation instructions. Canonical quotation blocks continue to resolve from stored passage IDs and cannot be edited through the working-draft boundary.
 
-This decision covers script state. D020 covers selected media; undo/redo and side-by-side comparison remain open in milestone 2.
+This decision covers script state. D020 covers selected media; undo/redo and side-by-side comparison were subsequently completed in F011/D021.
 
 ## D020 — Explicit selected media artifacts
 
@@ -133,3 +133,19 @@ Block insertion, removal, movement, and quotation replacement use the existing b
 An episode source drawer searches stored canonical passages by words, chapter, or reference. It exposes only reading fields, attribution, coverage, and rights metadata. Explicit insertion/replacement follows inspection of surrounding verses. Server validation checks quotation text, source ID, reference, edition, and import; checkpoint context is rebuilt from the actual quotation blocks, and legacy history context is derived on read. Canonical wording cannot be typed into a quotation field. Manual-start and generated-result persistence share the episode lock, preserving explicit script selection during races.
 
 The writing API has a bounded 512,000-character body allowance to accommodate the existing thirty-block schema, including JSON escape expansion; other request boundaries retain their original limit. Oversized or malformed writing requests fail with sanitized validation errors. No new inference, speech, rendering, publication clearance, or mixed-edition support is claimed.
+
+## D024 — Parallel completion of the remaining editor roadmap
+
+**Creator authorization, 2026-10-08.** The creator explicitly requested implementing all remaining items with parallel subagents. This supersedes the usual single-feature session boundary for this implementation. F014 tracks partial rewrites, F015 scene/media controls, F016 exact-revision review and format-specific export, and F007 verified hadith support. Each retains its own acceptance evidence; parallel development is not evidence of completion.
+
+File ownership separates writing, source ingestion, export/review, and composition/media controls. Shared schema changes are integrated in one reviewed migration by the primary agent. Existing immutable revisions and v1/v2 compositions remain readable. External corpus permission, publication rights, and creator listening/visual approval cannot be inferred from implementation or fixture tests; these remain explicit tracked prerequisites. Video-file backgrounds remain deferred beyond this image/GIF roadmap.
+
+## D025 — Content validity, scene compositions, and exact export review
+
+**Implemented in the parallel editor completion, 2026-10-08.** Episodes retain an optimistic `revision` for every saved form update and a `contentRevision` for script validity. Only title, brief, theme or target-duration changes advance content validity to the new revision; model, speech-provider preference, purpose and orientation changes preserve existing words and narration. Migration 0011 backfills the validity epoch to each existing episode revision before adding its constraint. New script checkpoints record the content epoch, while requests still check the optimistic revision.
+
+Composition v3 adds bounded scene overrides, immutable image snapshots, format-specific framing, typography and placement, opening/closing cards, reading durations, and music trim/separate fades/ducking. A local edited preview and export share EpisodeFilm; unchanged legacy compositions use their exact v1/v2 data. Spoken timing may split/merge or introduce line breaks only when its normalized word sequence and source attribution remain exact. Retimed captions create a new immutable track; visual and music edits preserve the selected narration. Rendering captures the requested immutable composition and orientation at enqueue time, so selecting another preview does not rewrite the queued snapshot.
+
+Consolidated review is a separate immutable record tied to the completed export, composition checksum, and script/voice/caption checksums. It records explicit creator feedback and checklist decisions without mutating stage reviews or source/provider rights. Publication eligibility rechecks those independent rights and uploaded-media declarations. This implementation continues to render private watermarked drafts; eligibility is not an upload or a publication render.
+
+Canonical hadith quotations add an explicit source-kind tag and resolve from separately versioned, reviewed hadith records; absent tags continue to mean Qur’an. A script retains its one Qur’an-edition boundary and may include independently attributed hadith. Full reports preserve numbering, context, narrator, supplied grade authority and reuse status. Writing and advanced media request limits are bounded separately to accommodate supported full reports and scene controls; generic requests retain the smaller limit.
