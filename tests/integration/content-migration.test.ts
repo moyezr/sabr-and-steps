@@ -21,11 +21,17 @@ test("content validity migration preserves older episode and immutable script re
   const name = `sabr_content_${randomUUID().replaceAll("-", "")}`;
   const directory = await mkdtemp(path.join(os.tmpdir(), "sabr-content-"));
   let pool: Pool | undefined;
+  let disposing = false;
   try {
     await admin.query(`CREATE DATABASE "${name}"`);
     const url = new URL(process.env.DATABASE_URL!);
     url.pathname = `/${name}`;
     pool = new Pool({ connectionString: url.toString() });
+    pool.on("error", (error: Error & { code?: string }) => {
+      // pg-pool can finish end() before an idle socket finishes closing. The
+      // disposable database's forced drop may terminate that socket meanwhile.
+      if (!disposing || error.code !== "57P01") throw error;
+    });
     const journal = JSON.parse(
       await readFile("drizzle/meta/_journal.json", "utf8"),
     );
@@ -86,6 +92,7 @@ test("content validity migration preserves older episode and immutable script re
       /episode_content_revision/,
     );
   } finally {
+    disposing = true;
     await pool?.end();
     await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
     await admin.end();
