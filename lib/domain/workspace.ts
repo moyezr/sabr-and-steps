@@ -151,7 +151,7 @@ export function summarizeWorkspace(
       ? "script"
       : kind === "narration"
         ? "voice"
-        : kind === "render"
+        : kind === "render" || kind === "production_draft"
           ? "exports"
           : undefined;
   for (const job of input.jobs) {

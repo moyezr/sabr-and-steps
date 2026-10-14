@@ -60,7 +60,7 @@
         "2026-09-14: pnpm check (13 unit tests), pnpm test:db (2 suites), and pnpm build passed; fixture tests cover chapter recovery, lock exclusion, deduplication and immutable prior versions.",
         "2026-09-14: Production browser search, chapter pagination, context, Arabic/provenance, missing/invalid references, keyboard, mobile, empty and offline states passed. See docs/evidence/2026-09-14-source-inspection.md."
       ],
-      "notes": "Authenticated pre-live import: Abdel Haleem resource 85, chapters 1\u20132 only (293 verses). Available catalog complete; full Qur\u2019an production coverage and publication reuse remain unverified/not cleared. See docs/sources.md."
+      "notes": "Authenticated pre-live import: Abdel Haleem resource 85, chapters 1–2 only (293 verses). Available catalog complete; full Qur’an production coverage and publication reuse remain unverified/not cleared. See docs/sources.md."
     },
     {
       "id": "F003",
@@ -80,7 +80,7 @@
         "2026-09-15: Luna generated a persisted structured draft; canonical quotation 2:153 was resolved from the source ID. Browser edit/save/reload retained quotation and context while creating an unreviewed revision.",
         "2026-09-15: pnpm check (15 tests), pnpm test:db (3 suites), and production build passed. Fabricated IDs, altered quotations, configuration drift, stale edits, and review invalidation are covered. See docs/evidence/2026-09-15-writing.md."
       ],
-      "notes": "Live OpenRouter index/evaluation/draft cost: $0.00214733. Source coverage remains pre-live chapters 1\u20132; quotation reuse not cleared. Latest pilot script awaits creator review."
+      "notes": "Live OpenRouter index/evaluation/draft cost: $0.00214733. Source coverage remains pre-live chapters 1–2; quotation reuse not cleared. Latest pilot script awaits creator review."
     },
     {
       "id": "F004",
@@ -98,7 +98,7 @@
       ],
       "evidence": [
         "2026-09-15: 16 unit tests and three DB suites pass, including native alignment rejection, timing revisions, stale compositions and pre-dispatch credit/rights/reservation guards. Production desktop/mobile voice discovery confirms 10,000 unused ElevenLabs characters; no real speech dispatched. See docs/evidence/2026-09-15-media-foundation.md.",
-        "2026-09-15: Real narration, exact native alignment/caption text and \u22123 dB peak verified. Reporting-lag and stale-reset credit guards added. See docs/evidence/2026-09-15-private-pilot.md."
+        "2026-09-15: Real narration, exact native alignment/caption text and −3 dB peak verified. Reporting-lag and stale-reset credit guards added. See docs/evidence/2026-09-15-private-pilot.md."
       ],
       "notes": "Real ElevenLabs Brian take generated after explicit creator authorization: 95.1 seconds, 51 aligned caption phrases, 1,501 included characters. Exact script/alignment/text and peak-level checks pass; creator pronunciation/listening acceptance remains pending. No automatic provider or paid fallback. Paused for creator listening feedback while requested F005 controls are implemented; resume after feedback."
     },
@@ -129,7 +129,7 @@
       "id": "F006",
       "priority": 6,
       "area": "pilot",
-      "title": "Complete a reviewed 90\u2013120 second pilot",
+      "title": "Complete a reviewed 90–120 second pilot",
       "user_visible_behavior": "The creator completes one original episode and downloads both videos, captions, and a source-referenced description.",
       "status": "blocked",
       "verification": [
@@ -139,7 +139,7 @@
         "Record actual elapsed time, model usage/cost, and creator feedback."
       ],
       "evidence": [
-        "2026-09-15: First actual 95-second private pilot generated with verified Qur\u2019an quotation, ElevenLabs narration, captions, both MP4s and source description. User-requested generation goal achieved; creator approval and full feature acceptance are not claimed."
+        "2026-09-15: First actual 95-second private pilot generated with verified Qur’an quotation, ElevenLabs narration, captions, both MP4s and source description. User-requested generation goal achieved; creator approval and full feature acceptance are not claimed."
       ],
       "notes": "Exact-export consolidated review controls are implemented in F016. Real private pilot files remain available; creator complete watching/listening, feedback, exact-revision approval and publication rights remain pending. Technical/synthetic acceptance is not creator approval."
     },
@@ -341,7 +341,7 @@
       "id": "F017",
       "priority": 17,
       "area": "sources",
-      "title": "Verify full Qur\u2019an coverage and publication reuse",
+      "title": "Verify full Qur’an coverage and publication reuse",
       "user_visible_behavior": "Use an explicitly chosen production translation with verified complete corpus coverage and recorded publication reuse terms.",
       "status": "blocked",
       "verification": [
@@ -350,7 +350,7 @@
         "Record translator/publisher permission, attribution and applicable narration/video reuse terms; do not infer rights from API access."
       ],
       "evidence": [
-        "2026-10-08: Authenticated read-only pre-live catalog still exposes only chapters 1\u20132 (293 verses); official docs require approved production access for the full dataset. See docs/evidence/2026-10-08-hadith-support.md."
+        "2026-10-08: Authenticated read-only pre-live catalog still exposes only chapters 1–2 (293 verses); official docs require approved production access for the full dataset. See docs/evidence/2026-10-08-hadith-support.md."
       ],
       "notes": "Approved production access and translation publication-reuse clearance are external prerequisites. Do not contact providers, change credentials, fabricate coverage or clear rights without creator-supplied evidence."
     },
@@ -390,6 +390,26 @@
         "2026-10-08: Desktop and 390 × 844 upload/rejection retention, muted previews, scene/crop/zoom save/reload and MP4 download pass. See docs/evidence/2026-10-08-video-backgrounds.md."
       ],
       "notes": "Muted H.264 MP4 only, up to 30 MB, two minutes, 1920 pixels/1080p pixel area and 60 fps. No provider inference, publication render, platform upload, source clearance or creator pilot approval is included."
+    },
+    {
+      "id": "F020",
+      "priority": 20,
+      "area": "automation",
+      "title": "Generate complete private text drafts from saved profiles",
+      "user_visible_behavior": "Save source/model/media/reading defaults and explicitly start a durable topic-to-both-exports run in a new episode, with bounded inference spending and retained manual work.",
+      "status": "passing",
+      "verification": [
+        "Persist immutable profiles and snapshot each explicitly requested run; duplicate requests create only one episode/job and changed input under a reused identity is rejected.",
+        "Generate canonical unreviewed scripts, reading-card compositions and both private exports through the worker, retaining exact run artifacts and checking asset hashes.",
+        "Recover after interruption without repeating completed stages; retain failed/uncertain jobs and preserve concurrent manual drafts/selections.",
+        "Enforce a cumulative inference reservation limit; never imply creator approval, source reuse clearance, speech eligibility, publication or scheduling.",
+        "Run meaningful unit/database checks, actual disposable both-format rendering/decoding, production build and desktop/mobile browser acceptance."
+      ],
+      "evidence": [
+        "2026-10-14: pnpm check (69 unit tests), all 11 disposable DB checks, production build and diff checks pass. Immutable snapshots, identity dedup, retained stages, manual work, lease/uncertainty and cumulative reservation guards verified.",
+        "2026-10-14: Six actual synthetic-source/injected-generation MP4s fully decode in both formats; browser profile/start/progress/retry/download/reload, desktop/390×844 and rejected-topic retention pass. Real migration preserves prior selections. No live inference or creator approval claimed. See docs/evidence/2026-10-14-draft-automation.md."
+      ],
+      "notes": "Bounded F020: text-only private drafts, immutable profiles, explicit one-shot runs. Narrated automation, publication and recurring schedules remain subsequent slices."
     }
   ],
   "parallel_implementation": {

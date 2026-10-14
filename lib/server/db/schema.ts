@@ -13,6 +13,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import type { EpisodeInput } from "../../domain/episode";
+import type { AutomationProfileInput } from "../../domain/automation";
 
 export const episodes = pgTable(
   "episodes",
@@ -487,6 +488,64 @@ export const videoExports = pgTable("video_exports", {
     .notNull()
     .defaultNow(),
 });
+
+// Profiles are append-only. Runs retain the exact requested settings/media.
+export const automationProfiles = pgTable(
+  "automation_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    settings: jsonb("settings").$type<AutomationProfileInput>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check(
+      "automation_profile_name",
+      sql`char_length(trim(${t.name})) BETWEEN 1 AND 100`,
+    ),
+    check(
+      "automation_profile_settings",
+      sql`jsonb_typeof(${t.settings}) = 'object'`,
+    ),
+  ],
+);
+
+export const productionRuns = pgTable(
+  "production_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    requestId: uuid("request_id").notNull().unique(),
+    requestHash: text("request_hash").notNull(),
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => automationProfiles.id),
+    episodeId: uuid("episode_id")
+      .notNull()
+      .unique()
+      .references(() => episodes.id),
+    jobId: uuid("job_id")
+      .notNull()
+      .unique()
+      .references(() => jobs.id),
+    snapshot: jsonb("snapshot")
+      .$type<{
+        profile: AutomationProfileInput;
+        assetChecksums: { image: string | null; music: string | null };
+      }>()
+      .notNull(),
+    scriptId: uuid("script_id").references(() => scriptRevisions.id),
+    compositionId: uuid("composition_id").references(() => compositions.id),
+    exportId: uuid("export_id").references(() => videoExports.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check("production_snapshot", sql`jsonb_typeof(${t.snapshot}) = 'object'`),
+  ],
+);
 
 export const compositionReviews = pgTable(
   "composition_reviews",

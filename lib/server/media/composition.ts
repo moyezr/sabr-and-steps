@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db/client";
 import {
@@ -9,6 +9,9 @@ import {
   episodes,
   scriptRevisions,
   voiceTakes,
+  jobs,
+  productionRuns,
+  episodeScriptDrafts,
 } from "../db/schema";
 import {
   compositionSchema,
@@ -23,6 +26,7 @@ import {
   retimeReadingCues,
 } from "../../domain/scene-settings";
 import { digest } from "../hash";
+import type { Job } from "../jobs/store";
 export const compositionInputSchema = z.object({
   selectionRevision: z.number().int().positive(),
   scriptId: z.string().uuid(),
@@ -41,11 +45,55 @@ export const compositionInputSchema = z.object({
   musicFade: z.number().min(0).max(10).default(3),
   editorSettings: editorSettingsSchema.optional(),
 });
-export async function saveComposition(episodeId: string, input: unknown) {
+export async function saveComposition(
+  episodeId: string,
+  input: unknown,
+  automation?: { job: Job; runId: string },
+) {
   const data = compositionInputSchema.parse(input);
   const editorSettings = data.editorSettings;
   const db = getDb();
   return db.transaction(async (tx) => {
+    const run = automation
+      ? (
+          await tx
+            .select()
+            .from(productionRuns)
+            .where(eq(productionRuns.id, automation.runId))
+            .for("update")
+        )[0]
+      : null;
+    if (automation) {
+      const owned = (
+        await tx
+          .select()
+          .from(jobs)
+          .where(
+            and(
+              eq(jobs.id, automation.job.id),
+              eq(jobs.owner, automation.job.owner!),
+              eq(jobs.status, "running"),
+              sql`${jobs.leaseUntil}>now()`,
+            ),
+          )
+          .for("update")
+      )[0];
+      if (!owned) throw new Error("JOB_LEASE_LOST");
+      if (
+        !run ||
+        run.jobId !== automation.job.id ||
+        run.episodeId !== episodeId ||
+        data.mode !== "text"
+      )
+        throw new Error("AUTOMATION_RUN_MISMATCH");
+      if (run.compositionId)
+        return (
+          await tx
+            .select()
+            .from(compositions)
+            .where(eq(compositions.id, run.compositionId))
+        )[0];
+    }
     const episode = (
       await tx
         .select()
@@ -75,6 +123,19 @@ export async function saveComposition(episodeId: string, input: unknown) {
     if (!workspace) throw new Error("WORKSPACE_NOT_FOUND");
     if (workspace.revision !== data.selectionRevision)
       throw new Error("MEDIA_SELECTION_CONFLICT");
+    if (
+      automation &&
+      (episode.revision !== 1 ||
+        workspace.selectedCompositionId ||
+        workspace.selectedVoiceTakeId ||
+        (
+          await tx
+            .select()
+            .from(episodeScriptDrafts)
+            .where(eq(episodeScriptDrafts.episodeId, episodeId))
+        ).length)
+    )
+      throw new Error("AUTOMATION_MANUAL_WORK_PRESENT");
     const fallback = workspace?.selectedScriptId
       ? undefined
       : (
@@ -98,6 +159,14 @@ export async function saveComposition(episodeId: string, input: unknown) {
     const musicAsset = data.musicId
       ? await checkedAsset(data.musicId, "audio")
       : null;
+    if (
+      run &&
+      (imageAsset?.checksum !==
+        (run.snapshot.assetChecksums.image ?? undefined) ||
+        musicAsset?.checksum !==
+          (run.snapshot.assetChecksums.music ?? undefined))
+    )
+      throw new Error("ASSET_CHECKSUM_MISMATCH");
     let take: typeof voiceTakes.$inferSelect | undefined;
     let track: typeof captionTracks.$inferSelect | undefined;
     let cues;
@@ -281,6 +350,11 @@ export async function saveComposition(episodeId: string, input: unknown) {
         .returning({ episodeId: episodeWorkspaceStates.episodeId })
     )[0];
     if (!selected) throw new Error("MEDIA_SELECTION_CONFLICT");
+    if (run)
+      await tx
+        .update(productionRuns)
+        .set({ scriptId: script.id, compositionId: saved.id })
+        .where(eq(productionRuns.id, run.id));
     return saved;
   });
 }

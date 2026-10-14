@@ -6,6 +6,7 @@ import {
   episodeScriptDrafts,
   episodeWorkspaceStates,
   scriptRevisions,
+  jobs,
 } from "../db/schema";
 import { type Job, progress } from "../jobs/store";
 import { buildIndex, retrieve } from "./retrieval";
@@ -17,7 +18,7 @@ import {
 } from "../../domain/script";
 import { digest } from "../hash";
 import { z } from "zod";
-import { scriptVersionState, selectFirstScript } from "./versions";
+import { scriptVersionState } from "./versions";
 import { scriptSourceContext, withScriptSources } from "./source-context";
 export const draftJobInput = z.object({
   episodeId: z.string().uuid(),
@@ -26,7 +27,7 @@ export const draftJobInput = z.object({
   requestId: z.string().uuid().optional(),
   generationInstructions: z.string().max(2000).default(""),
 });
-export async function createDraft(job: Job) {
+export async function createDraft(job: Job, generator = generateDraft) {
   const input = draftJobInput.parse(job.input);
   const db = getDb();
   const episode = (
@@ -40,7 +41,7 @@ export async function createDraft(job: Job) {
   const sources = await retrieve(job, indexId, query);
   if (!sources.length) throw new Error("NO_SUPPORTING_SOURCE");
   await progress(job, "Writing the draft with canonical citation IDs");
-  const draft = await generateDraft(
+  const draft = await generator(
     job,
     episode.llmModel,
     JSON.stringify({
@@ -68,6 +69,21 @@ export async function createDraft(job: Job) {
     )[0];
     if (!latest || latest.revision !== input.episodeRevision)
       throw new Error("EPISODE_REVISION_CHANGED");
+    const owned = (
+      await tx
+        .select()
+        .from(jobs)
+        .where(
+          and(
+            eq(jobs.id, job.id),
+            eq(jobs.owner, job.owner!),
+            eq(jobs.status, "running"),
+            sql`${jobs.leaseUntil}>now()`,
+          ),
+        )
+        .for("update")
+    )[0];
+    if (!owned) throw new Error("JOB_LEASE_LOST");
     const inserted = await tx
       .insert(scriptRevisions)
       .values({
@@ -87,17 +103,36 @@ export async function createDraft(job: Job) {
       })
       .onConflictDoNothing()
       .returning();
-    return (
+    const saved =
       inserted[0] ||
       (
         await tx
           .select()
           .from(scriptRevisions)
           .where(eq(scriptRevisions.jobId, job.id))
-      )[0]
-    );
+      )[0];
+    const workspace = (
+      await tx
+        .select()
+        .from(episodeWorkspaceStates)
+        .where(eq(episodeWorkspaceStates.episodeId, episode.id))
+        .for("update")
+    )[0];
+    if (!workspace)
+      await tx
+        .insert(episodeWorkspaceStates)
+        .values({ episodeId: episode.id, selectedScriptId: saved.id });
+    else if (!workspace.selectedScriptId)
+      await tx
+        .update(episodeWorkspaceStates)
+        .set({
+          selectedScriptId: saved.id,
+          revision: sql`${episodeWorkspaceStates.revision}+1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(episodeWorkspaceStates.episodeId, episode.id));
+    return saved;
   });
-  await selectFirstScript(episode.id, result.id);
   return { scriptId: result.id };
 }
 export async function listDrafts(episodeId: string) {

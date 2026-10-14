@@ -33,7 +33,7 @@ Open <http://127.0.0.1:3000>. Creating and saving ideas uses no AI credits. With
 | `pnpm sources:list` | List authenticated English Qur’an resources |
 | `pnpm sources:import 85` | Import/resume the selected pre-live inspection edition |
 | `pnpm sources:verify` | Compare five imported passages with fresh source responses |
-| `pnpm worker` | Process durable draft, narration and render jobs |
+| `pnpm worker` | Process durable drafting, narration, rendering and complete private text-draft runs |
 | `pnpm writing evaluate` | Run the small live retrieval evaluation (uses eligible OpenRouter credit) |
 | `pnpm exec tsx scripts/render-fixture.ts` | Render and probe both 5-second tone fixtures; no inference |
 | `pnpm build` | Compile a production build |
@@ -42,6 +42,8 @@ Open <http://127.0.0.1:3000>. Creating and saving ideas uses no AI credits. With
 Database integration tests need the database running. Browser acceptance steps and observed results are documented in [verification](docs/verification.md). Retrieval, script, credit/timing, worker and render checks are documented there. Fixtures are explicitly separate from live-provider and creator-review evidence.
 
 See [source inspection](docs/sources.md) for the 293-verse pre-live corpus, importer recovery, and unresolved production reuse rights.
+
+Open **Draft automation** at `/automation` to save defaults and explicitly prepare both private text-only formats from a topic. Run `pnpm worker` to process queued work. See [automation usage and recovery](docs/automation.md); this workflow preserves creator review and reuse requirements.
 
 ## Project map
 
@@ -55,6 +57,6 @@ Product routes live in `app/`; reusable studio UI in `components/`; validation a
 
 ### Bring your own picture and sound
 
-In an episode’s **Studio & exports**, upload JPEG/PNG/WebP/GIF backgrounds and MP3/WAV/M4A audio. Choose narration or **Text & background music · no voiceover**, then set image framing/darkness, reading speed, music volume, looping and fades. **Save preview revision**, inspect either format, adjust, and save again before rendering. Earlier exports stay available under **Previous exports**. Files are local; video backgrounds are deferred. Exports currently retain the private-draft publication status.
+In an episode’s **Studio & exports**, upload JPEG/PNG/WebP/GIF or muted H.264 MP4 backgrounds and MP3/WAV/M4A audio. Choose narration or **Text & background music · no voiceover**, then set image framing/darkness, reading speed, music volume, looping and fades. **Save preview revision**, inspect either format, adjust, and save again before rendering. Earlier exports stay available under **Previous exports**. Files are local. Exports currently retain the private-draft publication status.
 
 Uploads are limited to 30 MB. GIFs are limited to 30 seconds, 300 frames, and 100 million decoded frame pixels; use smaller GIFs for longer loops. Audio may be up to 20 minutes. Source/credit notes are included in the description. Optional original instrumental sketches can be initialized with `pnpm media:seed`.

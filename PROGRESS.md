@@ -1,18 +1,27 @@
 # Progress
 
-Last updated: 2026-10-08.
+Last updated: 2026-10-14.
 
 ## Current state
 
 - Repository: `/Users/moyezrabbani/Development/Projects/sabr-and-steps`.
-- Checkout: `codex/video-backgrounds`. F019 adds verified muted MP4 backgrounds. Earlier editor work is integrated on `main` and synchronized through `ce49333` using `moyezr`; the active GitHub account was restored and verified as `moyez-dev`. This new bounded implementation is local.
-- Passing: H001, F001–F003, F008–F016 and F019. No implementation feature is active. F004/F005 require creator listening/aesthetic feedback; F006 requires exact-export pilot approval. F007 source support is implemented but real corpus acceptance is blocked. F017 full Qur’an access/reuse and F018 direct provider quota/dispatch remain blocked by documented external prerequisites. PLAN.md milestones 1–5 have technical editor delivery; this does not complete creator/publication acceptance.
+- Checkout: `codex/draft-automation`. Earlier F019 work (`2e329f8`) is synchronized to GitHub main and codex/video-backgrounds using verified `moyezr` credentials. F020 is verified and ready for the authorized GitHub push.
+- Passing: H001, F001–F003, F008–F016 and F019–F020. No implementation feature is active. F004/F005 require creator listening/aesthetic feedback; F006 requires exact-export pilot approval. F007 source support is implemented but real corpus acceptance is blocked. F017 full Qur’an access/reuse and F018 direct provider quota/dispatch remain blocked by documented external prerequisites. PLAN milestones 1–5 have technical editor delivery; this does not complete creator/publication acceptance.
 - The connected editor exposes Idea, Script & sources, Voice & captions, Music, Backgrounds, Video, and Exports for existing and incomplete episodes.
 - Script models remain exactly `openai/gpt-5.6-luna` and `google/gemini-3.8-flash` through OpenRouter. Speech remains direct through configured providers with credit and rights checks.
 - PostgreSQL 17/pgvector runs locally on loopback port 55432. Provider outputs and final assets remain in the ignored local data directory.
-- The real production app is running at `http://127.0.0.1:3107` for creator review, with database migration 0011 applied. The existing “When waiting feels heavy” selection/media still opens saved and unchanged. Worker is stopped, no real queued/running/uncertain jobs remain, and temporary fixture servers/databases have been removed.
+- The real production app is running at `http://127.0.0.1:3107` for creator review, with database migration 0012 applied. Draft automation is available at `/automation`, with a saved Calm private drafts profile and no real production runs. The existing “When waiting feels heavy” selection/media still opens saved and unchanged. Worker is stopped, no real queued/running/uncertain jobs remain, and temporary fixture servers/databases have been removed.
 
 ## Latest completed work
+
+### F020 — saved profiles and complete private text drafts — 2026-10-14
+
+- Saved immutable source/model/editorial/media/reading profiles and explicit topic requests create isolated episodes, runs and jobs atomically. New `/automation` navigation shows persisted profiles, progress, costs, failures, retries and exact-export links. Duplicate/uncertain browser starts retain request identity, and opening/saving a profile dispatches no inference.
+- The existing worker advances through canonical drafting, text-only reading cards and both private exports. Script/selection and composition/run checkpoints are atomic; resumed rendering reuses saved stages. Live lease checks protect persistence, and automated export registration verifies the run's exact composition. Manual work is retained, and automatic checks never become creator approval or reuse clearance.
+- Per-run OpenRouter reservations cover embedding/draft calls under one cumulative limit (maximum $0.10), with held/settled estimates and higher reported costs accounted for before dispatch. Unknown provider outcomes require reconciliation. No narration fallback, publication render, upload or recurring schedule is included.
+- All 69 unit tests, 11 DB checks and production build pass. Real synthetic-fixture worker runs produced six playable MP4s with full decoding and both layout frames inspected; browser download checksums, default/profile persistence, polling during input, failed-job retry, desktop/390×844 and invalid-topic retention pass. An existing migration-fixture shutdown race was repaired without weakening migration assertions. Evidence: [draft automation](docs/evidence/2026-10-14-draft-automation.md).
+- Migration 0012 is installed on the real DB. The existing pilot's revision and selections match the pre-install snapshot. One usable Calm private drafts profile is saved; real runs/active/uncertain jobs remain zero. The app is on port 3107 for review and the worker is stopped. Fixture servers/databases are removed; all generated media/evidence remain ignored. No new live inference or real-source/editorial acceptance is claimed.
+
 
 ### F019 — uploaded video backgrounds — 2026-10-08
 
@@ -82,14 +91,14 @@ Last updated: 2026-10-08.
 
 ## Verification
 
-- `pnpm check`: harness, lint, TypeScript, and 67 unit tests pass.
-- `pnpm test:db`: all ten disposable database suites pass.
+- `pnpm check`: harness, lint, TypeScript, and 69 unit tests pass.
+- `pnpm test:db`: all 11 disposable database checks pass.
 - `pnpm build` and `git diff --check` pass.
-- The real database is migrated through 0011 with existing content/media preserved. The migration upgrade/repeat and content validity backfill are verified. Provider inference remains absent for F008–F013 except the separately labeled live F012 Luna check on 2026-10-08; F014 also has one bounded live Luna check. No live Gemini inference or new speech is claimed.
+- The real database is migrated through 0012 with existing content/media preserved. The migration upgrade/repeat and content validity backfill are verified. Provider inference remains absent for F008–F013 except the separately labeled live F012 Luna check on 2026-10-08; F014 also has one bounded live Luna check. No live Gemini inference or new speech is claimed.
 
 ## Next bounded action
 
-The next unblocked editor extension is support for mixed Qur’an editions with explicit per-quotation attribution; source footnote explanations also remain deferred. Select and verify one bounded slice when implementation is requested.
+The next automation slice is narrated private drafts using an explicitly pinned eligible ElevenLabs voice and fresh credit/rights checks, with restart-safe narration/timing selection. F020 currently produces text-only private drafts; run `pnpm worker` when starting an explicit production run. Publication renders, uploads and recurring scheduling need separate bounded implementation and authorization. Mixed Qur’an editions and source footnote explanations remain deferred editor extensions.
 
 Use the Exports review controls to watch/listen to the actual 90–120-second pilot, record pronunciation/music/visual feedback and approve that exact export when appropriate. F004–F006 are not completed by technical fixtures.
 

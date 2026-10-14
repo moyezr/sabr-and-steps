@@ -1556,7 +1556,11 @@ export function MediaStudio({ initial }: { initial: MediaState }) {
         )}
         {state.jobs.slice(0, 6).map((j) => (
           <div key={j.id} className="job-row">
-            <strong>{j.kind}</strong>
+            <strong>
+              {j.kind === "production_draft"
+                ? "Complete private draft"
+                : j.kind}
+            </strong>
             <span>
               {j.status} · {j.progress}
             </span>

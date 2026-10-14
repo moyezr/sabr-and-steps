@@ -72,6 +72,7 @@ export async function retryJob(id: string) {
         status: "queued",
         attempts: 0,
         error: null,
+        progress: "Waiting for worker",
         availableAt: sql`now()`,
         updatedAt: new Date(),
       })

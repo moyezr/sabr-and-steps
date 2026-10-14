@@ -9,6 +9,7 @@ import {
   Feather,
   Layers3,
   Leaf,
+  Sparkles,
 } from "lucide-react";
 
 export function StudioNav() {
@@ -32,6 +33,12 @@ export function StudioNav() {
           }
         >
           <Layers3 size={19} /> Episodes <span className="nav-dot" />
+        </Link>
+        <Link
+          href="/automation"
+          className={pathname === "/automation" ? "active" : ""}
+        >
+          <Sparkles size={19} /> Draft automation
         </Link>
         <Link
           href="/sources"

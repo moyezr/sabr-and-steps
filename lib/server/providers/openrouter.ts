@@ -7,6 +7,7 @@ import { type Job, heartbeat } from "../jobs/store";
 import { readArtifact, writeArtifact } from "../jobs/files";
 import { digest } from "../hash";
 import { EMBEDDING_CONFIG, generatedDraftSchema } from "../../domain/script";
+import { assertAutomationBudget } from "../../domain/automation";
 import {
   ideaDirectionsResponseSchema,
   parseIdeaDirectionsResult,
@@ -125,6 +126,31 @@ export async function openRouterRequest(
     )[0];
     if (prior && prior.state !== "released")
       throw new ProviderError("PROVIDER_RESULT_UNCERTAIN", false, true);
+    if (job.kind === "production_draft") {
+      const limit = z
+        .object({
+          maxTotalEstimatedUsd: z.number().finite().min(0.001).max(0.1),
+        })
+        .parse(job.input).maxTotalEstimatedUsd;
+      const [total] = await tx
+        .select({
+          usd: sql<number>`coalesce(sum(greatest(coalesce(${providerUsage.actual},0),${providerUsage.estimated})),0)::float8`,
+        })
+        .from(providerUsage)
+        .where(
+          and(
+            eq(providerUsage.jobId, job.id),
+            eq(providerUsage.provider, "openrouter"),
+            inArray(providerUsage.state, [
+              "reserved",
+              "dispatched",
+              "uncertain",
+              "settled",
+            ]),
+          ),
+        );
+      assertAutomationBudget(total.usd, estimate, limit);
+    }
     const available = await openRouterAccount();
     const pending = await tx
       .select({

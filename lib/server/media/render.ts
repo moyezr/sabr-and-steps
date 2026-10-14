@@ -5,7 +5,7 @@ const exec = promisify(execFile);
 import { readFile, mkdir, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db/client";
 import {
@@ -14,6 +14,7 @@ import {
   videoExports,
   compositions,
   jobs,
+  productionRuns,
 } from "../db/schema";
 import { compositionSchema, toSrt } from "../../domain/media";
 import { scriptBlockSchema, type ScriptBlock } from "../../domain/script";
@@ -267,19 +268,31 @@ export async function persistRenderedExport(
   if (!owner || values.jobId !== job.id) throw new Error("JOB_LEASE_LOST");
   return getDb().transaction(async (tx) => {
     const [owned] = await tx
-      .select({ id: jobs.id })
+      .select({ id: jobs.id, kind: jobs.kind })
       .from(jobs)
       .where(
         and(
           eq(jobs.id, job.id),
           eq(jobs.status, "running"),
-          eq(jobs.kind, "render"),
+          inArray(jobs.kind, ["render", "production_draft"]),
           eq(jobs.owner, owner),
           sql`${jobs.leaseUntil} > now()`,
         ),
       )
       .for("update");
     if (!owned) throw new Error("JOB_LEASE_LOST");
+    if (owned.kind === "production_draft") {
+      const [run] = await tx
+        .select()
+        .from(productionRuns)
+        .where(eq(productionRuns.jobId, job.id));
+      if (
+        !run ||
+        run.compositionId !== values.compositionId ||
+        run.episodeId !== job.episodeId
+      )
+        throw new Error("AUTOMATION_RUN_MISMATCH");
+    }
     const [existing] = await tx
       .select()
       .from(videoExports)
